@@ -144,10 +144,12 @@ def main():
                 while True:
                     latest_q.get_nowait()
             except queue.Empty:
+                time.sleep(0.05)
                 pass
             try:
                 latest_q.put_nowait((frame, time.time()))
             except queue.Full:
+                time.sleep(0.05)
                 pass
 
     threading.Thread(target=capture_loop, daemon=True).start()
@@ -170,10 +172,12 @@ def main():
             try:
                 frame, _ts = latest_q.get(timeout=1.0)
             except queue.Empty:
+                time.sleep(0.05)
                 continue
 
             now = time.time()
             if min_dt > 0 and (now - last_t) < min_dt:
+                time.sleep(0.05)
                 continue
             last_t = now
 
@@ -183,20 +187,24 @@ def main():
                 annotated = results[0].plot() if len(results) else frame
                 idx += 1
                 if idx % max(1, args.save_every) == 0:
-                    #cv2.imwrite(os.path.join(args.out_dir, f"frame_{idx:06d}.jpg"), annotated)
-                    cv2.imwrite(os.path.join(args.out_dir, f"frame_annotated.jpg"), annotated)
+                    frame_name = "frame_annotated.jpg"
+                    #frame_name = f"frame_{idx:06d}.jpg"
+                    print(f"saving frame, idx={idx}  name={frame_name}", flush=True)
+                    cv2.imwrite(os.path.join(args.out_dir, frame_name), annotated)
 
             n_inf += 1
             dt = now - t0
             if dt >= 1.0:
-                print(f"infer_fps={n_inf/dt:5.2f}", flush=True)
+                print(f"infer_fps={n_inf/dt:5.2f}  len(results)={len(results)}", flush=True)
                 n_inf = 0
                 t0 = now
 
     except KeyboardInterrupt:
         pass
     finally:
+        print("...stopping capure loop...", flush=True)
         stop_evt.set()
+        print("...stopping grabber...", flush=True)
         grabber.stop()
         print("Done.", flush=True)
 
