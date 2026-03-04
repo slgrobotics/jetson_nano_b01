@@ -105,21 +105,29 @@ gst-launch-1.0 nvarguscamerasrc sensor-id=1 ! 'video/x-raw(memory:NVMM),width=16
 
 **FPS benchmarks:**
 ```
-gst-launch-1.0 nvarguscamerasrc sensor-id=0 ! 'video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1' ! fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
+gst-launch-1.0 nvarguscamerasrc sensor-id=0 ! 'video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1' ! \
+fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
+
 (~57–60 FPS average  0 drops   Stable pipeline   NVMM-only = GPU path)
 
-gst-launch-1.0 nvarguscamerasrc sensor-id=0 ! 'video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1' ! nvvidconv ! 'video/x-raw,format=BGRx' ! videoconvert ! fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
+gst-launch-1.0 nvarguscamerasrc sensor-id=0 ! 'video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1' ! \
+nvvidconv ! 'video/x-raw,format=BGRx' ! videoconvert ! fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
+
 (720p → BGR conversion pipeline: Average FPS ≈ 56–57  Some jitter - 45–65 instantaneous, No drops)
 
-gst-launch-1.0 nvarguscamerasrc sensor-id=0 ! 'video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1' ! nvvidconv ! 'video/x-raw(memory:NVMM),width=640,height=480' ! nvvidconv ! \
+gst-launch-1.0 nvarguscamerasrc sensor-id=0 ! 'video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1' ! \
+nvvidconv ! 'video/x-raw(memory:NVMM),width=640,height=480' ! nvvidconv ! \
 'video/x-raw,format=BGRx' ! videoconvert ! fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
+
 (1280×720 → resize in NVMM to 640x480 → BGR pipeline  ~58 FPS average  0 drops  Stable)
 ```
 
 ## Experiments
 
 To explore Nano's GPU we use files in the "shared" folder, cloned from the repository.
-Review [this guide](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano#core-technical-barriers) - **Warning:** Results may vary. Sanity not included. ;-)
+Review [this guide](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano#core-technical-barriers)
+
+**Warning:** Results may vary. Sanity not included. ;-)
 
 Switch to the "*shared*" directory:
 ```
@@ -152,9 +160,19 @@ python3 yolo_runner.py --model /code/src/dt-duckpack-yolo/packages/yolo_node/bes
 
 Loading YOLO model: /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine
 Loading /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine for TensorRT inference...
-[03/04/2026-17:46:06] [TRT] [I] [MemUsageChange] Init CUDA: CPU +229, GPU +0, now: CPU 301, GPU 2518 (MiB)
-[03/04/2026-17:46:06] [TRT] [I] Loaded engine size: 10 MiB
-...
+[TRT] [I] [MemUsageChange] Init CUDA: CPU +229, GPU +0, now: CPU 301, GPU 2518 (MiB)
+[TRT] [I] Loaded engine size: 10 MiB
+[TRT] [W] Using an engine plan file across different models of devices is not recommended
+          and is likely to affect performance or even cause errors.
+[TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +158, GPU +244, now: CPU 478, GPU 2791 (MiB)
+[TRT] [I] [MemUsageChange] Init cuDNN: CPU +241, GPU +349, now: CPU 719, GPU 3140 (MiB)
+[TRT] [I] [MemUsageChange] TensorRT-managed allocation in engine deserialization:
+                            CPU +0, GPU +8, now: CPU 0, GPU 8 (MiB)
+[TRT] [I] [MemUsageChange] Init cuBLAS/cuBLASLt: CPU +1, GPU +0, now: CPU 709, GPU 3130 (MiB)
+[TRT] [I] [MemUsageChange] Init cuDNN: CPU +0, GPU +0, now: CPU 709, GPU 3130 (MiB)
+[TRT] [I] [MemUsageChange] TensorRT-managed allocation in IExecutionContext creation:
+                            CPU +0, GPU +19, now: CPU 0, GPU 27 (MiB)
+Warmed model with 3 dummy inference(s) in 34.44s
 Capturing 640x480@5 | YOLO max_hz=5.0 imgsz=480
 infer_fps= 0.35
 infer_fps= 0.37
@@ -164,11 +182,11 @@ saving frame, idx=210  name=frame_annotated.jpg
 infer_fps= 2.50  len(results)=1
 ```
 
-Loading and "*warming up*" the model takes about two minutes. The video pipeline building is postponed till the model is fully operational, otherwise the pipeline will crash.
+Loading and "*warming up*" the model takes less than two minutes. The video pipeline building is postponed till the model is fully operational, otherwise the pipeline will crash.
 
 You can open File manager on Jetson's Desktop, switch to /home/jetson/jetson_nano_b01/src directory and double-click on the "*frame_annotated.img*" to see it updated in real time. The viewer automatically refreshes image when it is updated.
 
-Watch GPU usage on host using `jtop`.
+Watch GPU usage on host using `jtop` (it wasn't high in my case).
 
 **Tip:** if pipeline is stuck:
 - run on host `sudo systemctl restart nvargus-daemon`
