@@ -125,9 +125,8 @@ nvvidconv ! 'video/x-raw(memory:NVMM),width=640,height=480' ! nvvidconv ! \
 ## Experiments
 
 To explore Nano's GPU we use files in the "shared" folder, cloned from the repository.
-Review [this guide](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano#core-technical-barriers)
 
-**Warning:** Results may vary. Sanity not included. ;-)
+**Warning:** Review the "[Core Technical Barriers](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano#core-technical-barriers)" guide. Results may vary. Sanity not included. ;-)
 
 Switch to the "*shared*" directory:
 ```
@@ -184,11 +183,11 @@ infer_fps= 2.50  len(results)=1
 
 Loading and "*warming up*" the model takes less than two minutes. The video pipeline building is postponed till the model is fully operational, otherwise the pipeline will crash.
 
-You can open File manager on Jetson's Desktop, switch to /home/jetson/jetson_nano_b01/src directory and double-click on the "*frame_annotated.img*" to see it updated in real time. The viewer automatically refreshes image when it is updated.
+You can open File manager on Jetson's Desktop, switch to `/home/jetson/jetson_nano_b01/src` directory and double-click on the "*frame_annotated.img*" to see it updated in real time. The viewer automatically refreshes image when it is updated.
 
 Watch GPU usage on host using `jtop` (it wasn't high in my case).
 
-**Tip:** if pipeline is stuck:
+**Tip:** if the image grabber pipeline is stuck:
 - run on host `sudo systemctl restart nvargus-daemon`
 - restart the container
 
