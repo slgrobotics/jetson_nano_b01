@@ -165,6 +165,10 @@ def main():
     # Warm first (before starting Argus)
     warm_model(model, imgsz=args.imgsz, n=max(0, args.warmup))
 
+    print("Model classes:")
+    for i, name in model.names.items():
+        print(f"{i}: {name}")
+
     # Now start camera pipeline
     grabber = ArgusStdoutGrabber(args.sensor_id, args.width, args.height, args.capture_fps)
     grabber.start()
@@ -224,6 +228,28 @@ def main():
             last_t = now
 
             results = model.predict(frame, imgsz=args.imgsz, verbose=False)
+
+            if len(results):
+                r = results[0]
+
+                for box in r.boxes:
+                    # Useful fields inside boxes
+                    trk_id = box.id             # tracking ID (if tracker used)
+                    cls = int(box.cls[0])       # class index
+                    conf = float(box.conf[0])   # confidence
+                    label = model.names[cls]
+
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()   # bounding box (x1,y1,x2,y2)
+                    cx, cy, w, h = box.xywh[0].tolist()     # center x,y,width,height
+
+                    print(
+                        f"detected: label={label} "
+                        f"class_id={cls} "
+                        f"conf={conf:.3f} "
+                        f"trk_id={trk_id} "
+                        f"bbox_xyxy=({x1:.1f},{y1:.1f},{x2:.1f},{y2:.1f}) "
+                        f"bbox_xywh=({cx:.1f},{cy:.1f},{w:.1f},{h:.1f})"
+                    )
 
             if args.out_dir:
                 annotated = results[0].plot() if len(results) else frame
