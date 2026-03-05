@@ -124,7 +124,7 @@ nvvidconv ! 'video/x-raw(memory:NVMM),width=640,height=480' ! nvvidconv ! \
 
 ## Experiments
 
-To explore Nano's GPU we use files in the "shared" folder, cloned from the repository.
+To explore Nano's GPU we use files in the "shared" folder, cloned from the repository (see "docker" and "src" folders).
 
 **Warning:** Review the "[Core Technical Barriers](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano#core-technical-barriers)" guide. Results may vary. Sanity not included. ;-)
 
@@ -171,14 +171,19 @@ Loading /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine for TensorRT i
 [TRT] [I] [MemUsageChange] Init cuDNN: CPU +0, GPU +0, now: CPU 709, GPU 3130 (MiB)
 [TRT] [I] [MemUsageChange] TensorRT-managed allocation in IExecutionContext creation:
                             CPU +0, GPU +19, now: CPU 0, GPU 27 (MiB)
-Warmed model with 3 dummy inference(s) in 34.44s
+Warmed model with 3 dummy inference(s) in 44.32s
 Capturing 640x480@5 | YOLO max_hz=5.0 imgsz=480
-infer_fps= 0.35
-infer_fps= 0.37
+infer_fps= 0.04  len(results)=1  frame.shape=(480, 640, 3)
+infer_fps= 0.19  len(results)=1  frame.shape=(480, 640, 3)
+infer_fps= 3.99  len(results)=1  frame.shape=(480, 640, 3)
+infer_fps= 2.74  len(results)=1  frame.shape=(480, 640, 3)
+saving frame, idx=10  name=frame_annotated.jpg
+infer_fps= 1.67  len(results)=1  frame.shape=(480, 640, 3)
+saving frame, idx=20  name=frame_annotated.jpg
+infer_fps= 3.06  len(results)=1  frame.shape=(480, 640, 3)
+saving frame, idx=30  name=frame_annotated.jpg
+infer_fps= 4.00  len(results)=1  frame.shape=(480, 640, 3)
 ...
-infer_fps= 3.00  len(results)=1
-saving frame, idx=210  name=frame_annotated.jpg
-infer_fps= 2.50  len(results)=1
 ```
 
 Loading and "*warming up*" the model takes less than two minutes. The video pipeline building is postponed till the model is fully operational, otherwise the pipeline will crash.
