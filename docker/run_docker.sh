@@ -1,6 +1,10 @@
 #!/bin/bash
 
 #
+# see https://github.com/slgrobotics/jetson_nano_b01
+#
+
+#
 # The container will have access to X11 screen on host (Jetson Nano).
 # Note the -e DISPLAY=:0.0 line in "docker run" below.
 # Open a terminal on Nano's Desktop and check the $DISPLAY environment variable:
