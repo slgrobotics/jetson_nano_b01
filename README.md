@@ -172,16 +172,23 @@ Loading /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine for TensorRT i
 [TRT] [I] [MemUsageChange] TensorRT-managed allocation in IExecutionContext creation:
                             CPU +0, GPU +19, now: CPU 0, GPU 27 (MiB)
 Warmed model with 3 dummy inference(s) in 44.32s
+Model classes:
+0: duckie
+1: cone
+2: truck
+3: bus
 Capturing 640x480@5 | YOLO max_hz=5.0 imgsz=480
-infer_fps= 0.04  len(results)=1  frame.shape=(480, 640, 3)
-infer_fps= 0.19  len(results)=1  frame.shape=(480, 640, 3)
-infer_fps= 3.99  len(results)=1  frame.shape=(480, 640, 3)
-infer_fps= 2.74  len(results)=1  frame.shape=(480, 640, 3)
-saving frame, idx=10  name=frame_annotated.jpg
-infer_fps= 1.67  len(results)=1  frame.shape=(480, 640, 3)
-saving frame, idx=20  name=frame_annotated.jpg
-infer_fps= 3.06  len(results)=1  frame.shape=(480, 640, 3)
-saving frame, idx=30  name=frame_annotated.jpg
+infer_fps= 0.32  len(results)=1  frame.shape=(480, 640, 3)
+infer_fps= 0.45  len(results)=1  frame.shape=(480, 640, 3)
+saving frame, idx=3  name=frame_annotated.jpg
+detected: label=duckie class_id=0 conf=0.865 trk_id=None bbox_xyxy=(0.0,220.3,225.0,457.7) bbox_xywh=(112.5,339.0,225.0,237.3)
+detected: label=duckie class_id=0 conf=0.920 trk_id=None bbox_xyxy=(0.0,198.6,224.5,456.8) bbox_xywh=(112.2,327.7,224.5,258.2)
+infer_fps= 1.46  len(results)=1  frame.shape=(480, 640, 3)
+detected: label=duckie class_id=0 conf=0.937 trk_id=None bbox_xyxy=(0.0,132.5,223.7,456.8) bbox_xywh=(111.8,294.7,223.7,324.3)
+saving frame, idx=6  name=frame_annotated.jpg
+detected: label=duckie class_id=0 conf=0.961 trk_id=None bbox_xyxy=(0.0,175.3,227.8,456.0) bbox_xywh=(113.9,315.7,227.8,280.7)
+detected: label=duckie class_id=0 conf=0.954 trk_id=None bbox_xyxy=(0.0,122.7,231.2,456.7) bbox_xywh=(115.6,289.7,231.2,334.0)
+infer_fps= 2.76  len(results)=1  frame.shape=(480, 640, 3)
 infer_fps= 4.00  len(results)=1  frame.shape=(480, 640, 3)
 ...
 ```
