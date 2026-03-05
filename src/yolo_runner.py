@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import argparse
 import os
 import queue
@@ -10,34 +11,45 @@ import time
 from typing import Optional, Tuple
 
 import cv2
+import select
 import numpy as np
+
 from ultralytics import YOLO
 
+"""
+# Run in the terminal to test the pipeline:
+
+gst-launch-1.0 -v nvarguscamerasrc sensor-id=0 ! 'video/x-raw(memory:NVMM),width=640,height=480,framerate=5/1,format=NV12' ! \
+nvvidconv ! 'video/x-raw,format=BGRx,width=640,height=480' !  fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
+
+Make a shell script to run this program:
+---
+#!/bin/bash
+
+python3 yolo_runner.py --model /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine  --sensor-id 0 --width 640 --height 480 --capture-fps 5 --max-yolo-hz 5 --imgsz 480  --warmup 3 --out-dir "." --save-every 10
+---
+
+"""
 
 class ArgusStdoutGrabber:
     def __init__(self, sensor_id: int, width: int, height: int, fps: int):
         self.sensor_id = sensor_id
-        self.width = width
-        self.height = height
+        self.w = width
+        self.h = height
         self.fps = fps
-
-        # NOTE: BGR bytes via videoconvert (works but can be CPU heavy).
-        self.bytes_per_frame = self.width * self.height * 3
-        self.proc: Optional[subprocess.Popen] = None
+        self.bytes_per_frame = self.w * self.h * 4  # BGRx
+        self.proc = None
 
     def _cmd(self):
         pipeline = (
             f"nvarguscamerasrc sensor-id={self.sensor_id} ! "
-            f"video/x-raw(memory:NVMM),width={self.width},height={self.height},framerate={self.fps}/1,format=NV12 ! "
-            f"nvvidconv ! video/x-raw,format=BGRx,width={self.width},height={self.height} ! "
-            f"videoconvert ! video/x-raw,format=BGR,width={self.width},height={self.height} ! "
+            f"video/x-raw(memory:NVMM),width={self.w},height={self.h},framerate={self.fps}/1,format=NV12 ! "
+            f"nvvidconv ! video/x-raw,format=BGRx,width={self.w},height={self.h} ! "
             f"fdsink fd=1 sync=false"
         )
         return ["gst-launch-1.0", "-q"] + shlex.split(pipeline)
 
     def start(self):
-        if self.proc and self.proc.poll() is None:
-            return
         self.proc = subprocess.Popen(
             self._cmd(),
             stdout=subprocess.PIPE,
@@ -53,40 +65,54 @@ class ArgusStdoutGrabber:
             except Exception:
                 self.proc.kill()
 
+    def _stderr_tail(self, n=30):
+        if not self.proc or not self.proc.stderr:
+            time.sleep(0.05)
+            return ""
+        try:
+            data = self.proc.stderr.read().decode("utf-8", errors="replace")
+            return "\n".join(data.strip().splitlines()[-n:])
+        except Exception:
+            time.sleep(0.05)
+            return "<could not read stderr>"
+
     def restart_if_needed(self):
         if self.proc is None:
             self.start()
             return
-
         rc = self.proc.poll()
         if rc is None:
             return
-
-        try:
-            err = self.proc.stderr.read().decode("utf-8", errors="replace")
-            tail = "\n".join(err.strip().splitlines()[-30:])
-        except Exception:
-            tail = "<could not read stderr>"
-
+        tail = self._stderr_tail()
         print(f"[grabber] gst-launch exited rc={rc}\n[grabber] stderr tail:\n{tail}\n---", flush=True)
-
-        if "CameraProvider" in tail or "Cannot create camera provider" in tail:
-            time.sleep(5.0)
-        else:
-            time.sleep(0.5)
-
+        time.sleep(1.0)
         self.start()
 
-    def read_frame_blocking(self) -> Optional[np.ndarray]:
+    def read_frame(self, timeout_s=2.0):
+        """
+        Returns BGR frame (h, w, 3) or None on timeout / stream trouble.
+        Never blocks forever.
+        """
         self.restart_if_needed()
         if not self.proc or not self.proc.stdout:
+            time.sleep(0.05)
+            return None
+
+        # Wait until some data is available to read (avoid hanging forever)
+        r, _, _ = select.select([self.proc.stdout], [], [], timeout_s)
+        if not r:
+            # No data; likely stalled. Check if process died.
+            if self.proc.poll() is not None:
+                return None
             return None
 
         data = self.proc.stdout.read(self.bytes_per_frame)
         if not data or len(data) < self.bytes_per_frame:
             return None
 
-        return np.frombuffer(data, dtype=np.uint8).reshape((self.height, self.width, 3))
+        arr = np.frombuffer(data, dtype=np.uint8).reshape((self.h, self.w, 4))
+        bgr = arr[:, :, :3].copy()  # copy so buffer isn't tied to pipe bytes
+        return bgr
 
 
 def warm_model(model: YOLO, imgsz: int, n: int = 1) -> None:
@@ -103,6 +129,20 @@ def warm_model(model: YOLO, imgsz: int, n: int = 1) -> None:
 
 
 def main():
+
+    """
+    # quick pipeline test:
+    grabber = ArgusStdoutGrabber(0, 640, 480, 5)
+    grabber.start()
+
+    while True:
+        frame = grabber.read_frame()
+        if frame is not None:
+            print(frame.shape)
+        else:
+            print("got None frame")
+    """
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
     ap.add_argument("--sensor-id", type=int, default=0)
@@ -134,10 +174,12 @@ def main():
 
     def capture_loop():
         while not stop_evt.is_set():
-            frame = grabber.read_frame_blocking()
+            frame = grabber.read_frame()
             if frame is None:
                 time.sleep(0.05)
                 continue
+
+            #print(frame.shape)
 
             # keep latest only
             try:
@@ -195,7 +237,7 @@ def main():
             n_inf += 1
             dt = now - t0
             if dt >= 1.0:
-                print(f"infer_fps={n_inf/dt:5.2f}  len(results)={len(results)}", flush=True)
+                print(f"infer_fps={n_inf/dt:5.2f}  len(results)={len(results)}  frame.shape={frame.shape}", flush=True)
                 n_inf = 0
                 t0 = now
 
