@@ -111,7 +111,8 @@ class ArgusStdoutGrabber:
             return None
 
         arr = np.frombuffer(data, dtype=np.uint8).reshape((self.h, self.w, 4))
-        bgr = arr[:, :, :3].copy()  # copy so buffer isn't tied to pipe bytes
+        bgr = arr[:, :, :3]
+        # bgr = arr[:, :, :3].copy()  # copy so buffer isn't tied to pipe bytes - if observing instability, try this to decouple from pipe buffer
         return bgr
 
 
