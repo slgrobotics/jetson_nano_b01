@@ -128,6 +128,8 @@ To explore Nano's GPU we use files in the "shared" folder, cloned from the repos
 
 **Warning:** Review the "[Core Technical Barriers](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano#core-technical-barriers)" guide. Results may vary. Sanity not included. ;-)
 
+### Trying the built-in *duckie* detector
+
 Switch to the "*shared*" directory:
 ```
 root@jetson:/code/src/dt-duckpack-yolo# cd shared/src
@@ -202,6 +204,86 @@ Watch GPU usage on host using `jtop` (it wasn't high in my case).
 **Tip:** if the image grabber pipeline is stuck:
 - run on host `sudo systemctl restart nvargus-daemon`
 - restart the container
+
+### Trying a better *"yolo11n.pt"* model
+
+The `--model` argument allows model names. Ultralytics will download model and deploy it. The model will be cached for subsequent runs.
+
+Here is how to run it:
+```
+root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_runner.py --model yolo11n.pt  --sensor-id 0 --width 640 --height 480 --capture-fps 5 --max-yolo-hz 5 --imgsz 480  --warmup 3
+Loading YOLO model: yolo11n.pt
+Downloading https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt to 'yolo11n.pt'...
+100%|        | 5.35M/5.35M [00:00<00:00, 28.1MB/s]
+Warmed model with 3 dummy inference(s) in 10.99s
+Model classes:
+0: person
+1: bicycle
+2: car
+3: motorcycle
+4: airplane
+5: bus
+...
+76: scissors
+77: teddy bear
+78: hair drier
+79: toothbrush
+Capturing 640x480@5 | YOLO max_hz=5.0 imgsz=480
+detected: label=person class_id=0 conf=0.852 trk_id=None bbox_xyxy=(117.6,1.0,595.6,463.9) bbox_xywh=(356.6,232.4,478.0,462.9) infer_ms=192.2
+detected: label=chair class_id=56 conf=0.637 trk_id=None bbox_xyxy=(579.6,165.9,639.9,448.2) bbox_xywh=(609.8,307.1,60.3,282.3) infer_ms=192.2
+detected: label=cup class_id=41 conf=0.406 trk_id=None bbox_xyxy=(125.7,136.2,172.6,226.2) bbox_xywh=(149.2,181.2,46.9,89.9) infer_ms=192.2
+detected: label=frisbee class_id=29 conf=0.374 trk_id=None bbox_xyxy=(221.9,244.7,431.3,475.2) bbox_xywh=(326.6,360.0,209.5,230.5) infer_ms=192.2
+infer_fps= 0.76  len(results)=1  frame.shape=(480, 640, 3)
+detected: label=sports ball class_id=32 conf=0.395 trk_id=None bbox_xyxy=(222.3,246.7,432.6,474.8) bbox_xywh=(327.5,360.7,210.3,228.1) infer_ms=97.5
+detected: label=laptop class_id=63 conf=0.306 trk_id=None bbox_xyxy=(0.2,258.4,92.8,331.5) bbox_xywh=(46.5,294.9,92.6,73.1) infer_ms=97.5
+infer_fps= 2.50  len(results)=1  frame.shape=(480, 640, 3)
+```
+Note the `infer_ms=97.5` and `infer_fps= 2.50` values. The inference engine is fast (~0.1s), while the image capturing and loop overhead takes about 0.2s.
+
+### Exporting models as *engine*
+
+The following Python code (*model_export.py*) will download model, invoke Ultralytics *AutoUpdate* and save the "*.engine*" file in the current directory.
+It takes several minutes to complete and must be run in the container.
+```
+from ultralytics import YOLO
+
+model = YOLO("yolo11n.pt")
+
+model.export(
+    format="engine",
+    imgsz=480,      # match what you already use
+    device=0,       # GPU
+    half=True       # FP16 for Nano
+)
+```
+
+Here is how it runs:
+```
+root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 model_export.py
+...
+TensorRT: export success ✅ 416.5s, saved as 'yolo11n.engine' (10.4 MB)
+Export complete (429.2s)
+Results saved to /code/src/dt-duckpack-yolo/shared/src
+Predict:         yolo predict task=detect model=yolo11n.engine imgsz=480 half 
+Validate:        yolo val task=detect model=yolo11n.engine imgsz=480 data=/usr/src/ultralytics/ultralytics/cfg/datasets/coco.yaml half 
+Visualize:       https://netron.app
+```
+
+Now you can run an optimized recognizer:
+```
+root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_runner.py --model yolo11n.engine \
+ --sensor-id 0 --width 640 --height 480 --capture-fps 5 --max-yolo-hz 5 --imgsz 480  --warmup 3
+Loading YOLO model: yolo11n.engine
+Loading yolo11n.engine for TensorRT inference...
+[03/06/2026-15:59:42] [TRT] [I] [MemUsageChange] Init CUDA: CPU +229, GPU +0, now: CPU 301, GPU 2143 (MiB)
+[03/06/2026-15:59:43] [TRT] [I] Loaded engine size: 10 MiB
+...
+detected: label=chair class_id=56 conf=0.284 trk_id=None bbox_xyxy=(1.3,4.7,529.3,471.3) bbox_xywh=(265.3,238.0,528.0,466.7) infer_ms=69.2
+infer_fps= 2.14  len(results)=1  frame.shape=(480, 640, 3)
+detected: label=person class_id=0 conf=0.879 trk_id=None bbox_xyxy=(3.3,4.7,533.0,466.7) bbox_xywh=(268.2,235.7,529.7,462.0) infer_ms=68.9
+```
+
+**Note:** The auto-updated Ultralytics code will not persist between the container runs.
 
 
 -------------------------
