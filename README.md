@@ -199,6 +199,8 @@ Loading and "*warming up*" the model takes less than two minutes. The video pipe
 
 You can open File manager on Jetson's Desktop, switch to `/home/jetson/jetson_nano_b01/src` directory and double-click on the "*frame_annotated.img*" to see it updated in real time. The viewer automatically refreshes image when it is updated.
 
+![IMG_20260305_130529194_HDR](https://github.com/user-attachments/assets/d1bfd266-4dd6-4103-9553-7580b6b53a83)
+
 Watch GPU usage on host using `jtop` (it wasn't high in my case).
 
 **Tip:** if the image grabber pipeline is stuck:
