@@ -145,7 +145,8 @@ drwxrwxr-x 5 1000 1000 4096 Mar  4 15:59 ../
 Make sure the "frame grabber" test works:
 ```
 root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 test.py 
-Running: gst-launch-1.0 nvarguscamerasrc sensor-id=0 ! video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1 ! fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
+Running: gst-launch-1.0 nvarguscamerasrc sensor-id=0 ! video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1 !
+         fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
 Press Ctrl+C to stop.
 
 rendered=32 dropped=0 fps_current=62.51 fps_avg=62.51
@@ -213,7 +214,8 @@ The `--model` argument allows model names. Ultralytics will download model and d
 
 Here is how to run it:
 ```
-root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_runner.py --model yolo11n.pt  --sensor-id 0 --width 640 --height 480 --capture-fps 5 --max-yolo-hz 5 --imgsz 480  --warmup 3
+root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_runner.py --model yolo11n.pt  --sensor-id 0 \
+       --width 640 --height 480 --capture-fps 5 --max-yolo-hz 5 --imgsz 480  --warmup 3
 Loading YOLO model: yolo11n.pt
 Downloading https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt to 'yolo11n.pt'...
 100%|        | 5.35M/5.35M [00:00<00:00, 28.1MB/s]
@@ -286,6 +288,23 @@ detected: label=person class_id=0 conf=0.879 trk_id=None bbox_xyxy=(3.3,4.7,533.
 ```
 
 **Note:** The auto-updated Ultralytics code will not persist between the container runs.
+
+To maximize pipeline performance, match image size to model input and tweak capture FPS:
+```
+python3 yolo_runner.py --model yolo11n.engine  --sensor-id 0 --width 480 --height 480 \
+      --capture-fps 4 --max-yolo-hz 5 --imgsz 480  --warmup 3
+```
+
+The following command yields `infer_fps= 8.00` with `frame.shape=(240, 240, 3)`
+```
+python3 yolo_runner.py --model yolo11n.engine  --sensor-id 0 --width 240 --height 240 \
+      --capture-fps 8 --max-yolo-hz 10 --imgsz 480  --warmup 3
+```
+
+There are other optimizations that can be applied to maximize performance:
+- rebuild model engine with whatever feels right for practical purposes (e.g 320x320);
+- match capture `width` and `height` to that size to avoid resizing in the pipeline;
+- test the pipeline with larger `capture-fps` and then set it slightly higher than the measured `infer_fps`.
 
 
 -------------------------
