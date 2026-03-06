@@ -227,7 +227,10 @@ def main():
                 continue
             last_t = now
 
+            ti0 = time.time()
             results = model.predict(frame, imgsz=args.imgsz, verbose=False)
+            ti1 = time.time()
+            infer_ms = (ti1-ti0)*1000
 
             if len(results):
                 r = results[0]
@@ -248,7 +251,8 @@ def main():
                         f"conf={conf:.3f} "
                         f"trk_id={trk_id} "
                         f"bbox_xyxy=({x1:.1f},{y1:.1f},{x2:.1f},{y2:.1f}) "
-                        f"bbox_xywh=({cx:.1f},{cy:.1f},{w:.1f},{h:.1f})"
+                        f"bbox_xywh=({cx:.1f},{cy:.1f},{w:.1f},{h:.1f}) "
+                        f"infer_ms={infer_ms:.1f}", flush=True
                     )
 
             if args.out_dir:
