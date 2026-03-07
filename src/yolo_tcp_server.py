@@ -105,11 +105,12 @@ class InferenceWorker:
         self.model_name = self._derive_model_name()
         self.ultralytics_version = ultralytics.__version__
 
+        print(f"...warming model with {self.warmup} blank images...", flush=True)
+        self._warm_model()
+
         print("Model classes:", flush=True)
         for i, name in self.model.names.items():
             print(f"{i}: {name}", flush=True)
-
-        self._warm_model()
 
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
@@ -244,7 +245,7 @@ class TCPInferenceServer:
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_sock.bind((self.host, self.port))
         self.server_sock.listen(8)
-        print(f"Listening on {self.host}:{self.port}", flush=True)
+        print(f"Listening on {self.host}:{self.port}  quiet: {self.quiet}", flush=True)
 
         try:
             while not self.stop_evt.is_set():
@@ -332,7 +333,7 @@ def main():
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=5001)
     ap.add_argument("--request-timeout", type=float, default=30.0)
-    ap.add_argument("--quiet", action="store_false", help="Suppress non-error logs")
+    ap.add_argument("--quiet", action="store_true", help="Suppress non-error logs")
     args = ap.parse_args()
 
     worker = InferenceWorker(
@@ -363,3 +364,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
