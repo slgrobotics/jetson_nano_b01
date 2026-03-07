@@ -44,7 +44,8 @@ def recv_response(sock):
     data = recv_exact(sock, n)
     return json.loads(data.decode("utf-8"))
 
-img = cv2.imread("../media/duckies_1_480x480.jpg")
+#img = cv2.imread("../media/duckies_1_480x480.jpg")
+img = cv2.imread("../media/duckies_2_480x480.jpg")
 ok, enc = cv2.imencode(".jpg", img)
 jpg = enc.tobytes()
 
