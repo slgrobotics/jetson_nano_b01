@@ -16,6 +16,11 @@ import struct
 import time
 import cv2
 
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 5001
+
+IMAGE_PATH = "../media/duckies_2_480x480.jpg"
+
 def recv_exact(sock, n):
     chunks = []
     remaining = n
@@ -44,12 +49,16 @@ def recv_response(sock):
     data = recv_exact(sock, n)
     return json.loads(data.decode("utf-8"))
 
-#img = cv2.imread("../media/duckies_1_480x480.jpg")
-img = cv2.imread("../media/duckies_2_480x480.jpg")
+
+print(f"Loading image from {IMAGE_PATH}...")
+
+img = cv2.imread(IMAGE_PATH)
 ok, enc = cv2.imencode(".jpg", img)
 jpg = enc.tobytes()
 
-with socket.create_connection(("127.0.0.1", 5001), timeout=10) as sock:
+print(f"Connecting to {SERVER_HOST}:{SERVER_PORT} and sending request...")
+
+with socket.create_connection((SERVER_HOST, SERVER_PORT), timeout=10) as sock:
     send_request(sock, 1, jpg)
     resp = recv_response(sock)
     print(json.dumps(resp, indent=2))

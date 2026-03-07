@@ -68,7 +68,7 @@ def recv_response(sock):
 
 def main():
 
-    print
+    print(f"Loading image from {IMAGE_PATH}...")
 
     img = cv2.imread(IMAGE_PATH)
     ok, enc = cv2.imencode(".jpg", img)
