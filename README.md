@@ -306,6 +306,82 @@ There are other optimizations that can be applied to maximize performance:
 - match capture `width` and `height` to that size to avoid resizing in the pipeline;
 - test the pipeline with larger `capture-fps` and then set it slightly higher than the measured `infer_fps`.
 
+### Inference TCP/IP Server
+
+The `src/yolo_tcp_server.py` receives an image over TCP/IP, and then uses similar code to call the model. It responds with detected objects:
+```
+root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_tcp_server.py \
+>   --model /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine \
+>   --imgsz 480 \
+>   --warmup 3 \
+>   --host 0.0.0.0 \
+>   --port 5001
+Loading YOLO model: /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine
+...warming model with 3 images...
+Loading /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine for TensorRT inference...
+...
+Warmed model with 3 dummy inference(s) in 21.55s
+Model classes:
+0: duckie
+1: cone
+2: truck
+3: bus
+Listening on 0.0.0.0:5001  quiet: False
+Client connected: ('127.0.0.1', 33950)
+Client disconnected: ('127.0.0.1', 33950)
+```
+
+There are two test clients: `src/yolo_tcp_server_test.py` and `src/yolo_tcp_server_benchmark.py`.
+
+Here is the benchmark test run:
+```
+root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_tcp_server_benchmark.py 
+Loading image from ../media/duckies_2_480x480.jpg...
+Connecting to 127.0.0.1:5001 and sending 20 requests...
+Last response:
+{
+  "ok": true,
+  "frame_id": 19,
+  "timestamp_ns": 1772898234343781839,
+  "server_received_ns": 1772898234398841905,
+  "server_infer_start_ns": 1772898234399222176,
+  "server_infer_end_ns": 1772898234455034867,
+  "queue_delay_ms": 0.380271,
+  "infer_ms": 55.80282211303711,
+  "model_name": "/code/src/dt-duckpack-yolo/packages/yolo_node/best.engine",
+  "model_path": "/code/src/dt-duckpack-yolo/packages/yolo_node/best.engine",
+  "ultralytics_version": "8.3.97",
+  "imgsz": 480,
+  "detections": [
+    {
+      "class_id": 0,
+      "label": "duckie",
+      "confidence": 0.810546875,
+      "track_id": null,
+      "bbox_xyxy": [
+        239.8125,
+        172.4375,
+        303.1875,
+        239.0625
+      ],
+      "bbox_xywh": [
+        271.5,
+        205.75,
+        63.375,
+        66.625
+      ]
+    },
+... (several duckies detected) ...
+  ]
+}
+req 01:  318.1 ms
+...
+req 20:  164.1 ms
+
+Average latency over the last 5..20 requests: 137.5 ms
+```
+
+The inference server can be called, for example, from a computer on the same LAN, a ROS2 node etc. 
 
 -------------------------
 
