@@ -67,7 +67,7 @@ def recv_response(sock):
 
 def main():
 
-    img = cv2.imread("test.jpg")
+    img = cv2.imread("../media/duckies_2_480x480.jpg")
     ok, enc = cv2.imencode(".jpg", img)
     jpg = enc.tobytes()
 
