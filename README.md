@@ -381,7 +381,8 @@ req 20:  164.1 ms
 Average latency over the last 5..20 requests: 137.5 ms
 ```
 
-The inference server can be called, for example, from a computer on the same LAN, a ROS2 node etc. 
+The inference server can be called, for example, from a computer on the same LAN, a ROS2 node etc.
+See this [AI Chat](https://chatgpt.com/s/t_69ab6eac6b0081919c64ed4045987d0f) for possibilities.
 
 -------------------------
 
