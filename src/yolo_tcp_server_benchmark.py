@@ -31,6 +31,7 @@ SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 5001
 REQUESTS = 20
 
+IMAGE_PATH = "../media/duckies_2_480x480.jpg"
 
 def recv_exact(sock, n):
     chunks = []
@@ -67,9 +68,13 @@ def recv_response(sock):
 
 def main():
 
-    img = cv2.imread("../media/duckies_2_480x480.jpg")
+    print
+
+    img = cv2.imread(IMAGE_PATH)
     ok, enc = cv2.imencode(".jpg", img)
     jpg = enc.tobytes()
+
+    print(f"Connecting to {SERVER_HOST}:{SERVER_PORT} and sending {REQUESTS} requests...")
 
     timings = []
     last_resp = None
