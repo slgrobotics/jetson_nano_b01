@@ -11,7 +11,9 @@ python3 yolo_tcp_server.py \
   --imgsz 480 \
   --warmup 3 \
   --host 0.0.0.0 \
-  --port 5001
+  --port 5001 \
+  --request-timeout 30 \
+  --quiet
 """
 
 import argparse
@@ -90,10 +92,11 @@ class InferenceJob:
 
 
 class InferenceWorker:
-    def __init__(self, model_path: str, imgsz: int, warmup: int):
+    def __init__(self, model_path: str, imgsz: int, warmup: int, quiet: bool = False):
         self.model_path = model_path
         self.imgsz = imgsz
         self.warmup = warmup
+        self.quiet = quiet
         self.job_q: "queue.Queue[InferenceJob]" = queue.Queue()
         self.stop_evt = threading.Event()
 
@@ -227,12 +230,13 @@ class InferenceWorker:
 
 
 class TCPInferenceServer:
-    def __init__(self, host: str, port: int, worker: InferenceWorker, request_timeout_s: float = 30.0):
+    def __init__(self, host: str, port: int, worker: InferenceWorker, request_timeout_s: float = 30.0, quiet: bool = False):
         self.host = host
         self.port = port
         self.worker = worker
         self.request_timeout_s = request_timeout_s
         self.stop_evt = threading.Event()
+        self.quiet = quiet
         self.server_sock: Optional[socket.socket] = None
 
     def serve_forever(self) -> None:
@@ -245,7 +249,8 @@ class TCPInferenceServer:
         try:
             while not self.stop_evt.is_set():
                 client_sock, addr = self.server_sock.accept()
-                print(f"Client connected: {addr}", flush=True)
+                if not self.quiet:
+                    print(f"Client connected: {addr}", flush=True)
                 t = threading.Thread(target=self.handle_client, args=(client_sock, addr), daemon=True)
                 t.start()
         finally:
@@ -315,7 +320,8 @@ class TCPInferenceServer:
                 sock.close()
             except Exception:
                 pass
-            print(f"Client disconnected: {addr}", flush=True)
+            if not self.quiet:
+                print(f"Client disconnected: {addr}", flush=True)
 
 
 def main():
@@ -326,12 +332,14 @@ def main():
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=5001)
     ap.add_argument("--request-timeout", type=float, default=30.0)
+    ap.add_argument("--quiet", action="store_false", help="Suppress non-error logs")
     args = ap.parse_args()
 
     worker = InferenceWorker(
         model_path=args.model,
         imgsz=args.imgsz,
         warmup=max(0, args.warmup),
+        quiet=args.quiet,
     )
 
     server = TCPInferenceServer(
@@ -339,6 +347,7 @@ def main():
         port=args.port,
         worker=worker,
         request_timeout_s=args.request_timeout,
+        quiet=args.quiet,
     )
 
     try:
