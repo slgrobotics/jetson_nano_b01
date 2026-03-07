@@ -333,7 +333,7 @@ def main():
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=5001)
     ap.add_argument("--request-timeout", type=float, default=30.0)
-    ap.add_argument("--quiet", action="store_true", help="Suppress non-error logs")
+    ap.add_argument("--quiet", action="store_true", help="Suppress non-error logs")  # When the flag appears → True, otherwise False
     args = ap.parse_args()
 
     worker = InferenceWorker(
