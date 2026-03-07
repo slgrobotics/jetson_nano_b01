@@ -88,16 +88,18 @@ def main():
             timings.append((t1 - t0) * 1000.0)  # ms
             last_resp = resp
 
-            print(f"req {i+1:02d}: {timings[-1]:6.1f} ms")
-
-    # Compute average over the last half
-    half = REQUESTS // 2
-    avg_ms = sum(timings[half:]) / len(timings[half:])
-
-    print("\nAverage latency over last half:", f"{avg_ms:.1f} ms\n")
-
     print("Last response:")
     print(json.dumps(last_resp, indent=2))
+
+    # Print all timings after measurement
+    for i, t in enumerate(timings):
+        print(f"req {i+1:02d}: {t:6.1f} ms")
+
+    # Compute average over the last avg_start samples to skip any initial warmup / startup overhead
+    avg_start = REQUESTS // 4
+    avg_ms = sum(timings[avg_start:]) / len(timings[avg_start:])
+
+    print(f"\nAverage latency over the last {avg_start}..{REQUESTS} requests: {avg_ms:.1f} ms\n")
 
 
 if __name__ == "__main__":
