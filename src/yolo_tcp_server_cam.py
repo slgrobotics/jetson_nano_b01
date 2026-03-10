@@ -27,7 +27,7 @@ from typing import Any, Dict, Optional
 import cv2
 import numpy as np
 
-from argus_stdout_grabber import ArgusStdoutGrabber
+from argus_stdout_grabber import ArgusStdoutGrabber, LatestFrame
 from inference_worker import InferenceWorker, InferenceJob
 from tcp_helpers import decode_image, recv_message, send_json
 
@@ -42,7 +42,19 @@ class TCPInferenceServer:
         self.stop_evt = threading.Event()
         self.quiet = quiet
         self.server_sock: Optional[socket.socket] = None
+        self.latest_frame = LatestFrame()
+        self.camera_thread: Optional[threading.Thread] = None
     
+    def camera_loop(self) -> None:
+        while not self.stop_evt.is_set():
+            try:
+                frame = self.grabber.read_frame()
+                if frame is not None:
+                    self.latest_frame.set(frame)
+            except Exception as e:
+                if not self.quiet:
+                    print(f"Camera loop error: {e}", flush=True)
+                time.sleep(0.05)
 
     def serve_forever(self) -> None:
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -50,6 +62,9 @@ class TCPInferenceServer:
         self.server_sock.bind((self.host, self.port))
         self.server_sock.listen(8)
         print(f"Listening on {self.host}:{self.port}  quiet: {self.quiet}", flush=True)
+
+        self.camera_thread = threading.Thread(target=self.camera_loop, daemon=True)
+        self.camera_thread.start()
 
         try:
             while not self.stop_evt.is_set():
@@ -85,8 +100,9 @@ class TCPInferenceServer:
                     break
 
                 try:
-                    frame_from_client = decode_image(header)
-                    frame_from_camera = self.grabber.read_frame()
+                    #frame_from_client = decode_image(header)
+                    frame_from_camera = self.latest_frame.get()
+                    
                     frame = frame_from_camera # frame_from_client if frame_from_client is not None else frame_from_camera
                 except Exception as e:
                     send_json(sock, {"ok": False, "error": f"decode_error: {e}"})
