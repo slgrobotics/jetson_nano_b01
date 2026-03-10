@@ -8,7 +8,7 @@ import numpy as np
 
 import ultralytics
 from ultralytics import YOLO
-from .argus_stdout_grabber import ArgusStdoutGrabber
+from argus_stdout_grabber import ArgusStdoutGrabber
 
 ##
 # InferenceWorker: A background worker thread that runs YOLO inference on submitted frames.
