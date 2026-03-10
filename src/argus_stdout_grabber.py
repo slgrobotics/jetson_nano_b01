@@ -2,6 +2,7 @@ import shlex
 import signal
 import subprocess
 import select
+import threading
 import time
 import numpy as np
 
@@ -99,3 +100,15 @@ class ArgusStdoutGrabber:
         return bgr
 
 
+class LatestFrame:
+    def __init__(self):
+        self.frame = None
+        self.lock = threading.Lock()
+
+    def set(self, frame):
+        with self.lock:
+            self.frame = frame
+
+    def get(self):
+        with self.lock:
+            return None if self.frame is None else self.frame.copy()
