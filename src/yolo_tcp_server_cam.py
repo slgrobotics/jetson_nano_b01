@@ -27,9 +27,9 @@ from typing import Any, Dict, Optional
 import cv2
 import numpy as np
 
-from .argus_stdout_grabber import ArgusStdoutGrabber
-from .inference_worker import InferenceWorker, InferenceJob
-from .tcp_helpers import decode_image, recv_message, send_json
+from argus_stdout_grabber import ArgusStdoutGrabber
+from inference_worker import InferenceWorker, InferenceJob
+from tcp_helpers import decode_image, recv_message, send_json
 
 
 class TCPInferenceServer:
