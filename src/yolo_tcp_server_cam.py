@@ -132,18 +132,6 @@ class TCPInferenceServer:
 
 
 def main():
-    """
-    # quick pipeline test:
-    grabber = ArgusStdoutGrabber(0, 640, 480, 5)
-    grabber.start()
-
-    while True:
-        frame = grabber.read_frame()
-        if frame is not None:
-            print(frame.shape)
-        else:
-            print("got None frame")
-    """
 
     ap = argparse.ArgumentParser()
     # Camera related args:
@@ -169,10 +157,10 @@ def main():
     while True:
         frame = grabber.read_frame()
         if frame is not None:
-            print(frame.shape)
+            print(f"Local camera works, frame shape: {frame.shape}")
             break
         else:
-            print("got None frame")
+            print("Error: problem with local camera - got None frame")
 
     worker = InferenceWorker(
         model_path=args.model,
