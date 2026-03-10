@@ -42,6 +42,14 @@ def send_json(sock: socket.socket, obj: Dict[str, Any]) -> None:
     sock.sendall(data)
 
 
+def send_json_with_jpeg(sock: socket.socket, obj: Dict[str, Any], jpg_bytes: bytes) -> None:
+    data = json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    sock.sendall(struct.pack(">I", len(data)))
+    sock.sendall(data)
+    sock.sendall(struct.pack(">I", len(jpg_bytes)))
+    sock.sendall(jpg_bytes)
+
+
 def decode_image(header: Dict[str, Any]) -> np.ndarray:
     encoding = header.get("encoding", "jpeg").lower()
     payload = header["_payload"]

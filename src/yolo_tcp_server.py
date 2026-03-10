@@ -17,17 +17,11 @@ python3 yolo_tcp_server.py \
 """
 
 import argparse
-import json
 import socket
-import struct
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Optional
 
-import cv2
-import numpy as np
-
-from argus_stdout_grabber import ArgusStdoutGrabber
 from inference_worker import InferenceWorker, InferenceJob
 from tcp_helpers import decode_image, recv_message, send_json
 

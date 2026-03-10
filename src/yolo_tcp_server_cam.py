@@ -17,23 +17,20 @@ python3 yolo_tcp_server.py \
 """
 
 import argparse
-import json
 import socket
-import struct
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import cv2
-import numpy as np
 
 from argus_stdout_grabber import ArgusStdoutGrabber, LatestFrame
 from inference_worker import InferenceWorker, InferenceJob
-from tcp_helpers import decode_image, recv_message, send_json
+from tcp_helpers import decode_image, recv_message, send_json, send_json_with_jpeg
 
 
 class TCPInferenceServer:
-    def __init__(self, host: str, port: int, grabber: ArgusStdoutGrabber, worker: InferenceWorker, request_timeout_s: float = 30.0, quiet: bool = False):
+    def __init__(self, host: str, port: int, grabber: Optional[ArgusStdoutGrabber], worker: InferenceWorker, request_timeout_s: float = 30.0, quiet: bool = False):
         self.host = host
         self.port = port
         self.grabber = grabber
@@ -42,7 +39,9 @@ class TCPInferenceServer:
         self.stop_evt = threading.Event()
         self.quiet = quiet
         self.server_sock: Optional[socket.socket] = None
-        self.latest_frame = LatestFrame()
+
+        # These are used when server-side camera capture is enabled:
+        self.latest_frame = LatestFrame()  # Shared latest-frame buffer
         self.camera_thread: Optional[threading.Thread] = None
     
     def camera_loop(self) -> None:
@@ -63,12 +62,19 @@ class TCPInferenceServer:
         self.server_sock.listen(8)
         print(f"Listening on {self.host}:{self.port}  quiet: {self.quiet}", flush=True)
 
-        self.camera_thread = threading.Thread(target=self.camera_loop, daemon=True)
-        self.camera_thread.start()
+        if self.grabber:
+            self.camera_thread = threading.Thread(target=self.camera_loop, daemon=True)
+            self.camera_thread.start()
 
         try:
             while not self.stop_evt.is_set():
-                client_sock, addr = self.server_sock.accept()
+                try:
+                    client_sock, addr = self.server_sock.accept()
+                except OSError:
+                    if self.stop_evt.is_set():
+                        break
+                    raise
+
                 if not self.quiet:
                     print(f"Client connected: {addr}", flush=True)
                 t = threading.Thread(target=self.handle_client, args=(client_sock, addr), daemon=True)
@@ -87,6 +93,7 @@ class TCPInferenceServer:
 
     def handle_client(self, sock: socket.socket, addr) -> None:
         sock.settimeout(self.request_timeout_s)
+        frame_from_camera_compressed = None
         try:
             while not self.stop_evt.is_set():
                 try:
@@ -100,10 +107,17 @@ class TCPInferenceServer:
                     break
 
                 try:
-                    #frame_from_client = decode_image(header)
-                    frame_from_camera = self.latest_frame.get()
-                    
-                    frame = frame_from_camera # frame_from_client if frame_from_client is not None else frame_from_camera
+                    if self.grabber:
+                        frame = self.latest_frame.get()  # from local camera
+                        if frame is None:
+                            send_json(sock, {"ok": False, "error": "no_camera_frame"})
+                            continue
+                    else:
+                        frame = decode_image(header)  # from TCP/IP client
+                        if frame is None:
+                            send_json(sock, {"ok": False, "error": "no_client_frame"})
+                            continue
+
                 except Exception as e:
                     send_json(sock, {"ok": False, "error": f"decode_error: {e}"})
                     continue
@@ -134,7 +148,17 @@ class TCPInferenceServer:
                     )
                     continue
 
-                send_json(sock, job.result or {"ok": False, "error": "unknown_error"})
+                if self.grabber:
+                    ok, frame_from_camera_compressed = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                    if not ok:
+                        send_json(sock, {"ok": False, "error": "jpeg_encode_failed"})
+                        continue
+
+                    send_json_with_jpeg(sock, job.result or {"ok": False, "error": "unknown_error"}, frame_from_camera_compressed.tobytes())
+
+                else:
+                    send_json(sock, job.result or {"ok": False, "error": "unknown_error"})
+
 
         except Exception as e:
             print(f"Client handler error {addr}: {e}", flush=True)
@@ -151,6 +175,7 @@ def main():
 
     ap = argparse.ArgumentParser()
     # Camera related args:
+    ap.add_argument("--use_server_cam",  action="store_true", help="Use the server camera feed instead of client frames")  # When the flag appears → True, otherwise False
     ap.add_argument("--sensor-id", type=int, default=0)
     ap.add_argument("--width", type=int, default=640)
     ap.add_argument("--height", type=int, default=480)
@@ -165,19 +190,26 @@ def main():
     ap.add_argument("--quiet", action="store_true", help="Suppress non-error logs")  # When the flag appears → True, otherwise False
     args = ap.parse_args()
 
-    # Now start camera pipeline
-    grabber = ArgusStdoutGrabber(args.sensor_id, args.width, args.height, args.capture_fps)
-    grabber.start()
+    use_server_cam=args.use_server_cam
 
-    # make sure the camera is working before loading the model:
-    for _ in range(10):
-        frame = grabber.read_frame()
-        if frame is not None:
-            print(f"Local camera works, frame shape: {frame.shape}")
-            break
-        time.sleep(0.1)
+    if use_server_cam:
+        print("Using server camera feed instead of client frames")
+        # Now start camera pipeline
+        grabber = ArgusStdoutGrabber(args.sensor_id, args.width, args.height, args.capture_fps)
+        grabber.start()
+
+        # make sure the camera is working before loading the model:
+        for _ in range(10):
+            frame = grabber.read_frame()
+            if frame is not None:
+                print(f"Local camera works, frame shape: {frame.shape}")
+                break
+            time.sleep(0.1)
+        else:
+            raise RuntimeError("Camera failed to produce frames")
     else:
-        raise RuntimeError("Camera failed to produce frames")
+        print("Not using server camera feed, will rely on client frames")
+        grabber = None
 
     worker = InferenceWorker(
         model_path=args.model,
