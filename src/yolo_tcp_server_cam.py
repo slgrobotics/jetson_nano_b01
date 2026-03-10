@@ -209,7 +209,7 @@ def main():
             if frame is not None:
                 print(f"Local camera works, frame shape: {frame.shape}")
                 break
-            time.sleep(0.1)
+            time.sleep(0.2)
         else:
             raise RuntimeError("Camera failed to produce frames")
     else:
@@ -238,6 +238,7 @@ def main():
         pass
     finally:
         print("Shutting down...", flush=True)
+        grabber.stop() if grabber else None
         server.shutdown()
         worker.shutdown()
         print("Done.", flush=True)
