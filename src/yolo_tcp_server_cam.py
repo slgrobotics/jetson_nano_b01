@@ -154,13 +154,14 @@ def main():
     grabber.start()
 
     # make sure the camera is working before loading the model:
-    while True:
+    for _ in range(10):
         frame = grabber.read_frame()
         if frame is not None:
             print(f"Local camera works, frame shape: {frame.shape}")
             break
-        else:
-            print("Error: problem with local camera - got None frame")
+        time.sleep(0.1)
+    else:
+        raise RuntimeError("Camera failed to produce frames")
 
     worker = InferenceWorker(
         model_path=args.model,
