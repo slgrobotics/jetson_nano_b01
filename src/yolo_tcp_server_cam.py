@@ -33,14 +33,16 @@ from tcp_helpers import decode_image, recv_message, send_json
 
 
 class TCPInferenceServer:
-    def __init__(self, host: str, port: int, worker: InferenceWorker, request_timeout_s: float = 30.0, quiet: bool = False):
+    def __init__(self, host: str, port: int, grabber: ArgusStdoutGrabber, worker: InferenceWorker, request_timeout_s: float = 30.0, quiet: bool = False):
         self.host = host
         self.port = port
+        self.grabber = grabber
         self.worker = worker
         self.request_timeout_s = request_timeout_s
         self.stop_evt = threading.Event()
         self.quiet = quiet
         self.server_sock: Optional[socket.socket] = None
+    
 
     def serve_forever(self) -> None:
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -83,7 +85,9 @@ class TCPInferenceServer:
                     break
 
                 try:
-                    frame = decode_image(header)
+                    frame_from_client = decode_image(header)
+                    frame_from_camera = self.grabber.read_frame()
+                    frame = frame_from_camera # frame_from_client if frame_from_client is not None else frame_from_camera
                 except Exception as e:
                     send_json(sock, {"ok": False, "error": f"decode_error: {e}"})
                     continue
@@ -142,6 +146,12 @@ def main():
     """
 
     ap = argparse.ArgumentParser()
+    # Camera related args:
+    ap.add_argument("--sensor-id", type=int, default=0)
+    ap.add_argument("--width", type=int, default=640)
+    ap.add_argument("--height", type=int, default=480)
+    ap.add_argument("--capture-fps", type=int, default=5)
+    # Server related args:
     ap.add_argument("--model", required=True, help="Path to YOLO .engine/.pt/.onnx")
     ap.add_argument("--imgsz", type=int, default=480)
     ap.add_argument("--warmup", type=int, default=1)
@@ -150,6 +160,19 @@ def main():
     ap.add_argument("--request-timeout", type=float, default=30.0)
     ap.add_argument("--quiet", action="store_true", help="Suppress non-error logs")  # When the flag appears → True, otherwise False
     args = ap.parse_args()
+
+    # Now start camera pipeline
+    grabber = ArgusStdoutGrabber(args.sensor_id, args.width, args.height, args.capture_fps)
+    grabber.start()
+
+    # make sure the camera is working before loading the model:
+    while True:
+        frame = grabber.read_frame()
+        if frame is not None:
+            print(frame.shape)
+            break
+        else:
+            print("got None frame")
 
     worker = InferenceWorker(
         model_path=args.model,
@@ -161,6 +184,7 @@ def main():
     server = TCPInferenceServer(
         host=args.host,
         port=args.port,
+        grabber=grabber,
         worker=worker,
         request_timeout_s=args.request_timeout,
         quiet=args.quiet,
