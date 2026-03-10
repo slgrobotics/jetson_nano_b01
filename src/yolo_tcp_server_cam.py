@@ -93,7 +93,6 @@ class TCPInferenceServer:
 
     def handle_client(self, sock: socket.socket, addr) -> None:
         sock.settimeout(self.request_timeout_s)
-        frame_from_camera_compressed = None
         try:
             while not self.stop_evt.is_set():
                 try:
@@ -107,7 +106,7 @@ class TCPInferenceServer:
                     break
 
                 try:
-                    if self.grabber:
+                    if self.grabber is not None:
                         frame = self.latest_frame.get()  # from local camera
                         if frame is None:
                             send_json(sock, {"ok": False, "error": "no_camera_frame"})
@@ -148,17 +147,23 @@ class TCPInferenceServer:
                     )
                     continue
 
-                if self.grabber:
-                    ok, frame_from_camera_compressed = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                if self.grabber is not None:
+                    ok, encoded = cv2.imencode(
+                        '.jpg',
+                        frame,
+                        [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+                    )
                     if not ok:
                         send_json(sock, {"ok": False, "error": "jpeg_encode_failed"})
                         continue
 
-                    send_json_with_jpeg(sock, job.result or {"ok": False, "error": "unknown_error"}, frame_from_camera_compressed.tobytes())
-
+                    send_json_with_jpeg(
+                        sock,
+                        job.result or {"ok": False, "error": "unknown_error"},
+                        encoded.tobytes(),
+                    )
                 else:
                     send_json(sock, job.result or {"ok": False, "error": "unknown_error"})
-
 
         except Exception as e:
             print(f"Client handler error {addr}: {e}", flush=True)
