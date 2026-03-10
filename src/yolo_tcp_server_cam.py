@@ -47,7 +47,7 @@ class TCPInferenceServer:
     def camera_loop(self) -> None:
         while not self.stop_evt.is_set():
             try:
-                frame = self.grabber.read_frame()
+                frame = self.grabber.read_frame()  # in camera_thread
                 if frame is not None:
                     self.latest_frame.set(frame)
             except Exception as e:
@@ -205,7 +205,7 @@ def main():
 
         # make sure the camera is working before loading the model:
         for _ in range(10):
-            frame = grabber.read_frame()
+            frame = grabber.read_frame()  # in main thread
             if frame is not None:
                 print(f"Local camera works, frame shape: {frame.shape}")
                 break
