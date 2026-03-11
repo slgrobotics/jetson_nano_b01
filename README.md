@@ -4,6 +4,8 @@ Back to [Main Project Home](https://github.com/slgrobotics/articubot_one/wiki)
 
 This is a collection of files and docs related to my experiments with NVIDIA Jetson Nano Bo1 (2020 DevKit with two camera connectors).
 
+If you are looking for ROS 2 compatible Inference Server - skip to [this section](https://github.com/slgrobotics/jetson_nano_b01/blob/main/README.md#inference-tcpip-server).
+
 The machine and OS (and other experiments) are described [here](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano).
 
 I used a Docker file, code and info from the following work of Sampsa Ranta:
@@ -310,80 +312,101 @@ There are other optimizations that can be applied to maximize performance:
 
 ### Inference TCP/IP Server
 
-The `src/yolo_tcp_server.py` receives an image over TCP/IP, and then uses similar code to call the model. It responds with detected objects:
+**Note:** the servers described here are intended to work with [ROS2 Inference package](https://github.com/slgrobotics/ros2_jetson_nano_inference)
+
+There are two versions of the server:
+- `src/yolo_tcp_server.py` (simplified, deprecated) performs inference on JPEG images delivered to it via TCP/IP
+- `src/yolo_tcp_server_cam.py` (recommended) can do all the above or use local Jetson Nano camera (`--use_server_cam`)
+
+The server runs in a Docker container (described above) and its port 5001 is open to requests from the LAN, for example, from a robot's Raspberry Pi with ROS2.
+
+In this example the `src/yolo_tcp_server_cam.py` receives a request over TCP/IP, grabs a frame from the Nano's camers and calls the model.
+It responds with detected objects and the frame (packed as JPEG):
 ```
-root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_tcp_server.py \
->   --model /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine \
->   --imgsz 480 \
->   --warmup 3 \
->   --host 0.0.0.0 \
->   --port 5001
-Loading YOLO model: /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine
-...warming model with 3 images...
-Loading /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine for TensorRT inference...
+root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_tcp_server_cam.py --model yolo11n.engine \
+ --imgsz 480 --warmup 3 --host 0.0.0.0 --port 5001 --use_server_cam
+
+Using server camera feed instead of client frames
+Local camera works, frame shape: (480, 640, 3)
+Loading YOLO model: yolo11n.engine
+...warming model with 3 blank images...
+Loading yolo11n.engine for TensorRT inference...
+[03/11/2026-04:21:49] [TRT] [I] [MemUsageChange] Init CUDA: CPU +230, GPU +0, now: CPU 303, GPU 2385 (MiB)
+[03/11/2026-04:21:49] [TRT] [I] Loaded engine size: 10 MiB
 ...
-Warmed model with 3 dummy inference(s) in 21.55s
+Warmed model with 3 dummy inference(s) in 22.86s
 Model classes:
-0: duckie
-1: cone
-2: truck
-3: bus
+0: person
+1: bicycle
+...
+77: teddy bear
+78: hair drier
+79: toothbrush
 Listening on 0.0.0.0:5001  quiet: False
-Client connected: ('127.0.0.1', 33950)
-Client disconnected: ('127.0.0.1', 33950)
+Client connected: ('...', 46214)
+... (ROS2 node grabs raw images and detections)...
+Client disconnected: ('...', 33950)
 ```
 
 There are two test clients: `src/yolo_tcp_server_test.py` and `src/yolo_tcp_server_benchmark.py`.
 
-Here is the benchmark test run:
+Here is the benchmark test run (note that the server returns detections and raw Nano's camera image packed as JPEG):
 ```
-root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_tcp_server_benchmark.py 
+sergei@sergeiu7:~/jetson_nano_b01/src$ python3 yolo_tcp_server_benchmark.py
 Loading image from ../media/duckies_2_480x480.jpg...
-Connecting to 127.0.0.1:5001 and sending 20 requests...
+Connecting to ...:5001 and sending 20 requests...
 Last response:
 {
   "ok": true,
   "frame_id": 19,
-  "timestamp_ns": 1772898234343781839,
-  "server_received_ns": 1772898234398841905,
-  "server_infer_start_ns": 1772898234399222176,
-  "server_infer_end_ns": 1772898234455034867,
-  "queue_delay_ms": 0.380271,
-  "infer_ms": 55.80282211303711,
-  "model_name": "/code/src/dt-duckpack-yolo/packages/yolo_node/best.engine",
-  "model_path": "/code/src/dt-duckpack-yolo/packages/yolo_node/best.engine",
-  "ultralytics_version": "8.3.97",
+  ...
   "imgsz": 480,
   "detections": [
     {
       "class_id": 0,
-      "label": "duckie",
-      "confidence": 0.810546875,
+      "label": "person",
+      "confidence": 0.8587185740470886,
       "track_id": null,
       "bbox_xyxy": [
-        239.8125,
-        172.4375,
-        303.1875,
-        239.0625
+        0.6666666865348816,
+        2.0,
+        575.3333740234375,
+        473.3333435058594
       ],
       "bbox_xywh": [
-        271.5,
-        205.75,
-        63.375,
-        66.625
+        288.0000305175781,
+        237.6666717529297,
+        574.6666870117188,
+        471.3333435058594
       ]
     },
-... (several duckies detected) ...
-  ]
+    {
+      "class_id": 60,
+      "label": "dining table",
+      "confidence": 0.6187804341316223,
+    },
+    {
+      "class_id": 56,
+      "label": "chair",
+      "confidence": 0.4863315224647522,
+    },
+    {
+      "class_id": 56,
+      "label": "chair",
+      "confidence": 0.41679662466049194,
+    }
+  ],
+  "has_jpeg": true
 }
-req 01:  318.1 ms
+Returned JPEGs: 20  average size: 36.0 KB
+req 01:  153.7 ms
 ...
-req 20:  164.1 ms
+req 20:   73.3 ms
 
-Average latency over the last 5..20 requests: 137.5 ms
+Average latency over requests 6..20: 72.3 ms
 ```
 
-The inference server can be called, for example, from a computer on the same LAN, a ROS2 node etc.
+The inference server can be called, for example, from a computer on the same LAN, a [ROS2 node](https://github.com/slgrobotics/ros2_jetson_nano_inference) etc.
 See this [AI Chat](https://chatgpt.com/s/t_69ab6eac6b0081919c64ed4045987d0f) for possibilities.
 
 -------------------------
