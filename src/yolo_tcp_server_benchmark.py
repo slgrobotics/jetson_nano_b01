@@ -26,7 +26,7 @@ import struct
 import time
 import cv2
 
-SERVER_HOST = "127.0.0.1"  # Use the actual IP address of the Nano (not container) if testing from another machine.
+SERVER_HOST = "jetson.local"  # Use the actual IP address of the Nano (not container) if testing from another machine.
 SERVER_PORT = 5001
 REQUESTS = 20
 
