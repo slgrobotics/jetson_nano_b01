@@ -2,11 +2,16 @@ Back to [Main Project Home](https://github.com/slgrobotics/articubot_one/wiki)
 
 ## Experiments with Jetson Nano B01
 
-This is a collection of files and docs related to my experiments with NVIDIA Jetson Nano Bo1 (2020 DevKit with two camera connectors).
+This is a collection of files and docs related to my experiments with NVIDIA Jetson Nano B01 (2020 DevKit with two camera connectors).
 
-If you are looking for ROS 2 compatible Inference Server - skip to [this section](https://github.com/slgrobotics/jetson_nano_b01/blob/main/README.md#inference-tcpip-server).
+If you are looking for **ROS 2 compatible Inference Server** - skip to [this section](https://github.com/slgrobotics/jetson_nano_b01/blob/main/README.md#inference-tcpip-server).
 
 The machine and OS (and other experiments) are described [here](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano).
+
+**Note:** I use Waveshare Binocular Camera [Module](https://www.newegg.com/p/3C6-00U7-00PK8?item=9SIC4CTKR07923),
+Dual IMX219 8 Megapixels. It supports stereo vision (depth vision). Other CSI-connected cameras compatible with Nano B01 or webcams might work.
+
+### Purpose and Credits
 
 I used a Docker file, code and info from the following work of Sampsa Ranta:
 - https://github.com/masterhapero/dt-duckpack-yolov11
@@ -15,9 +20,6 @@ I used a Docker file, code and info from the following work of Sampsa Ranta:
 The goal (if there was a goal) was to put the old Nano to work in some of my modern [projects](https://github.com/slgrobotics/articubot_one/wiki).
 
 An alternative approach is described [here](https://github.com/slgrobotics/articubot_one/wiki/Jetson-Nano%3A-%22jetson%E2%80%90inference%22-container).
-
-**Note:** I use Waveshare Binocular Camera [Module](https://www.newegg.com/p/3C6-00U7-00PK8?item=9SIC4CTKR07923),
-Dual IMX219 8 Megapixels. It supports stereo vision (depth vision). Other CSI-connected cameras compatible with Nano B01 might work.
 
 ### Clone the repository
 
@@ -89,7 +91,7 @@ drwxrwxr-x 2 1000 1000  4096 Mar  4 15:59 docker/
 drwxrwxr-x 2 1000 1000  4096 Mar  4 15:59 src/
 ```
 
-## Tests (inside the container):
+## Camera pipeline tests (inside the container):
 
 **test without X11 display, no output:**
 ```
@@ -320,7 +322,7 @@ There are two versions of the server:
 
 The server runs in a Docker container (described above) and its port 5001 is open to requests from the LAN, for example, from a robot's Raspberry Pi with ROS2.
 
-In this example the `src/yolo_tcp_server_cam.py` receives a request over TCP/IP, grabs a frame from the Nano's camers and calls the model.
+In this example the `src/yolo_tcp_server_cam.py` receives a request over TCP/IP, grabs a frame from the Nano's camera and calls the model.
 It responds with detected objects and the frame (packed as JPEG):
 ```
 root@jetson:/code/src/dt-duckpack-yolo/shared/src# python3 yolo_tcp_server_cam.py --model yolo11n.engine \
