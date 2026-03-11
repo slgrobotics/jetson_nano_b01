@@ -45,18 +45,24 @@ class TCPInferenceServer:
 
         try:
             while not self.stop_evt.is_set():
-                client_sock, addr = self.server_sock.accept()
+                try:
+                    client_sock, addr = self.server_sock.accept()
+                except OSError:
+                    if self.stop_evt.is_set():
+                        break
+                    raise
+
                 if not self.quiet:
                     print(f"Client connected: {addr}", flush=True)
                 t = threading.Thread(target=self.handle_client, args=(client_sock, addr), daemon=True)
                 t.start()
         finally:
-            if self.server_sock:
+            if self.server_sock is not None:
                 self.server_sock.close()
 
     def shutdown(self) -> None:
         self.stop_evt.set()
-        if self.server_sock:
+        if self.server_sock is not None:
             try:
                 self.server_sock.close()
             except Exception:
@@ -73,13 +79,17 @@ class TCPInferenceServer:
                 except ConnectionError:
                     break
                 except Exception as e:
-                    send_json(sock, {"ok": False, "error": f"bad_request: {e}"})
+                    send_json(sock, {"ok": False, "has_jpeg": False, "error": f"bad_request: {e}"})
                     break
 
                 try:
-                    frame = decode_image(header)
+                    frame = decode_image(header)  # from TCP/IP client
+                    if frame is None:
+                        send_json(sock, {"ok": False, "has_jpeg": False, "error": "no_client_frame"})
+                        continue
+
                 except Exception as e:
-                    send_json(sock, {"ok": False, "error": f"decode_error: {e}"})
+                    send_json(sock, {"ok": False, "has_jpeg": False, "error": f"decode_error: {e}"})
                     continue
 
                 frame_id = header.get("frame_id")
@@ -100,6 +110,7 @@ class TCPInferenceServer:
                         sock,
                         {
                             "ok": False,
+                            "has_jpeg": False,
                             "frame_id": frame_id,
                             "timestamp_ns": timestamp_ns,
                             "server_received_ns": received_ns,
@@ -108,7 +119,15 @@ class TCPInferenceServer:
                     )
                     continue
 
-                send_json(sock, job.result or {"ok": False, "error": "unknown_error"})
+                response = job.result
+                if response is None:
+                    send_json(sock, {"ok": False, "has_jpeg": False, "error": "missing_result"})
+                    continue
+
+                response = dict(response)  # defensive copy to modify
+
+                response["has_jpeg"] = False
+                send_json(sock, response)
 
         except Exception as e:
             print(f"Client handler error {addr}: {e}", flush=True)
@@ -122,6 +141,7 @@ class TCPInferenceServer:
 
 
 def main():
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, help="Path to YOLO .engine/.pt/.onnx")
     ap.add_argument("--imgsz", type=int, default=480)
