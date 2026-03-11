@@ -163,17 +163,22 @@ class TCPInferenceServer:
                         send_json(sock, {"ok": False, "has_jpeg": False, "error": "missing_result"})
                         continue
 
+                    response = dict(response)  # defensive copy
                     if response.get("ok", False):
-                        response = dict(response)  # optional defensive copy
                         response["has_jpeg"] = True
                         send_json_with_jpeg(sock, response, encoded.tobytes())
                     else:
-                        response = dict(response)  # optional defensive copy
                         response["has_jpeg"] = False
                         send_json(sock, response)
 
                 else:
-                    send_json(sock, job.result or {"ok": False, "has_jpeg": False, "error": "unknown_error"})
+                    response = job.result
+                    if response is None:
+                        send_json(sock, {"ok": False, "has_jpeg": False, "error": "missing_result"})
+                    else:
+                        response = dict(response)  # defensive copy
+                        response["has_jpeg"] = False
+                        send_json(sock, response)
 
         except Exception as e:
             print(f"Client handler error {addr}: {e}", flush=True)
