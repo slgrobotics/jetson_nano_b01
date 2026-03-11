@@ -102,23 +102,23 @@ class TCPInferenceServer:
                 except ConnectionError:
                     break
                 except Exception as e:
-                    send_json(sock, {"ok": False, "error": f"bad_request: {e}"})
+                    send_json(sock, {"ok": False, "has_jpeg": False, "error": f"bad_request: {e}"})
                     break
 
                 try:
                     if self.grabber is not None:
                         frame = self.latest_frame.get()  # from local camera
                         if frame is None:
-                            send_json(sock, {"ok": False, "error": "no_camera_frame"})
+                            send_json(sock, {"ok": False, "has_jpeg": False, "error": "no_camera_frame"})
                             continue
                     else:
                         frame = decode_image(header)  # from TCP/IP client
                         if frame is None:
-                            send_json(sock, {"ok": False, "error": "no_client_frame"})
+                            send_json(sock, {"ok": False, "has_jpeg": False, "error": "no_client_frame"})
                             continue
 
                 except Exception as e:
-                    send_json(sock, {"ok": False, "error": f"decode_error: {e}"})
+                    send_json(sock, {"ok": False, "has_jpeg": False, "error": f"decode_error: {e}"})
                     continue
 
                 frame_id = header.get("frame_id")
@@ -139,6 +139,7 @@ class TCPInferenceServer:
                         sock,
                         {
                             "ok": False,
+                            "has_jpeg": False,
                             "frame_id": frame_id,
                             "timestamp_ns": timestamp_ns,
                             "server_received_ns": received_ns,
@@ -154,16 +155,25 @@ class TCPInferenceServer:
                         [int(cv2.IMWRITE_JPEG_QUALITY), 80]
                     )
                     if not ok:
-                        send_json(sock, {"ok": False, "error": "jpeg_encode_failed"})
+                        send_json(sock, {"ok": False, "has_jpeg": False, "error": "jpeg_encode_failed"})
                         continue
 
-                    send_json_with_jpeg(
-                        sock,
-                        job.result or {"ok": False, "error": "unknown_error"},
-                        encoded.tobytes(),
-                    )
+                    response = job.result
+                    if response is None:
+                        send_json(sock, {"ok": False, "has_jpeg": False, "error": "missing_result"})
+                        continue
+
+                    if response.get("ok", False):
+                        response = dict(response)  # optional defensive copy
+                        response["has_jpeg"] = True
+                        send_json_with_jpeg(sock, response, encoded.tobytes())
+                    else:
+                        response = dict(response)  # optional defensive copy
+                        response["has_jpeg"] = False
+                        send_json(sock, response)
+
                 else:
-                    send_json(sock, job.result or {"ok": False, "error": "unknown_error"})
+                    send_json(sock, job.result or {"ok": False, "has_jpeg": False, "error": "unknown_error"})
 
         except Exception as e:
             print(f"Client handler error {addr}: {e}", flush=True)
