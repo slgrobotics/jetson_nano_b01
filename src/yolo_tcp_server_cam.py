@@ -45,9 +45,12 @@ class TCPInferenceServer:
         self.camera_thread: Optional[threading.Thread] = None
     
     def camera_loop(self) -> None:
+        if self.grabber is None:
+            return
+        
         while not self.stop_evt.is_set():
             try:
-                frame = self.grabber.read_frame()  # in camera_thread
+                frame = self.grabber.read_frame()  # called in camera_thread
                 if frame is not None:
                     self.latest_frame.set(frame)
             except Exception as e:
@@ -62,7 +65,7 @@ class TCPInferenceServer:
         self.server_sock.listen(8)
         print(f"Listening on {self.host}:{self.port}  quiet: {self.quiet}", flush=True)
 
-        if self.grabber:
+        if self.grabber is not None:
             self.camera_thread = threading.Thread(target=self.camera_loop, daemon=True)
             self.camera_thread.start()
 
@@ -80,18 +83,30 @@ class TCPInferenceServer:
                 t = threading.Thread(target=self.handle_client, args=(client_sock, addr), daemon=True)
                 t.start()
         finally:
-            if self.server_sock:
+            if self.server_sock is not None:
                 self.server_sock.close()
 
     def shutdown(self) -> None:
         self.stop_evt.set()
-        if self.server_sock:
+        if self.server_sock is not None:
             try:
                 self.server_sock.close()
             except Exception:
                 pass
 
     def handle_client(self, sock: socket.socket, addr) -> None:
+        """
+        @brief Handles a single client connection, processing incoming frames and sending back inference results.
+        This method runs in a separate thread for each client.
+        It reads frames either from the local camera (if grabber is set) or from the client socket,
+          submits them to the inference worker, and sends back the results.
+        It also handles timeouts and errors gracefully.
+
+        Responses:
+         - ok=True,  has_jpeg=True  -> server-camera success, JSON followed by JPEG image for control and overlays
+         - ok=True,  has_jpeg=False -> client-image success, JSON only (client already has the image for overlays)
+         - ok=False, has_jpeg=False -> any error, JSON only
+        """
         sock.settimeout(self.request_timeout_s)
         try:
             while not self.stop_evt.is_set():
@@ -163,8 +178,18 @@ class TCPInferenceServer:
                         send_json(sock, {"ok": False, "has_jpeg": False, "error": "missing_result"})
                         continue
 
-                    response = dict(response)  # defensive copy
-                    if response.get("ok", False):
+                    response = dict(response)
+
+                    if self.grabber is not None and response.get("ok", False):
+                        ok, encoded = cv2.imencode(
+                            '.jpg',
+                            frame,
+                            [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+                        )
+                        if not ok:
+                            send_json(sock, {"ok": False, "has_jpeg": False, "error": "jpeg_encode_failed"})
+                            continue
+
                         response["has_jpeg"] = True
                         send_json_with_jpeg(sock, response, encoded.tobytes())
                     else:
@@ -210,7 +235,7 @@ def main():
     ap.add_argument("--quiet", action="store_true", help="Suppress non-error logs")  # When the flag appears → True, otherwise False
     args = ap.parse_args()
 
-    use_server_cam=args.use_server_cam
+    use_server_cam = args.use_server_cam
 
     if use_server_cam:
         print("Using server camera feed instead of client frames")
@@ -220,7 +245,7 @@ def main():
 
         # make sure the camera is working before loading the model:
         for _ in range(10):
-            frame = grabber.read_frame()  # in main thread
+            frame = grabber.read_frame()  # called in main thread
             if frame is not None:
                 print(f"Local camera works, frame shape: {frame.shape}")
                 break
@@ -253,7 +278,8 @@ def main():
         pass
     finally:
         print("Shutting down...", flush=True)
-        grabber.stop() if grabber else None
+        if grabber is not None:
+            grabber.stop()
         server.shutdown()
         worker.shutdown()
         print("Done.", flush=True)
