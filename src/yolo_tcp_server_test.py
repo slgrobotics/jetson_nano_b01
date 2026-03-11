@@ -16,7 +16,7 @@ import struct
 import time
 import cv2
 
-SERVER_HOST = "127.0.0.1"
+SERVER_HOST = "127.0.0.1"  # Use the actual IP address of the Nano (not container) if testing from another machine.
 SERVER_PORT = 5001
 
 IMAGE_PATH = "../media/duckies_2_480x480.jpg"

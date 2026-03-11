@@ -26,12 +26,17 @@ import struct
 import time
 import cv2
 
-
-SERVER_HOST = "127.0.0.1"
+SERVER_HOST = "127.0.0.1"  # Use the actual IP address of the Nano (not container) if testing from another machine.
 SERVER_PORT = 5001
 REQUESTS = 20
 
+# If True, the client sends an empty payload and the server captures from its camera.
+# Otherwise, the client sends a JPEG frame (IMAGE_PATH).
+# Make sure the server is running with the same setting for yolo_tcp_server_cam.py --use-server-cam true|false
+USE_SERVER_CAM = False
+
 IMAGE_PATH = "../media/duckies_2_480x480.jpg"
+
 
 def recv_exact(sock, n):
     chunks = []
@@ -45,29 +50,38 @@ def recv_exact(sock, n):
     return b"".join(chunks)
 
 
-def send_request(sock, frame_id, jpg_bytes):
+def send_request(sock, frame_id, jpg_bytes, use_server_cam=False):
+    payload = b"" if use_server_cam else jpg_bytes
+
     header = {
         "frame_id": frame_id,
         "timestamp_ns": time.time_ns(),
         "encoding": "jpeg",
-        "payload_size": len(jpg_bytes),
+        "payload_size": len(payload),
     }
 
     hdr = json.dumps(header).encode("utf-8")
 
     sock.sendall(struct.pack(">I", len(hdr)))
     sock.sendall(hdr)
-    sock.sendall(jpg_bytes)
+    if payload:
+        sock.sendall(payload)
 
 
 def recv_response(sock):
     hdr_len = struct.unpack(">I", recv_exact(sock, 4))[0]
     data = recv_exact(sock, hdr_len)
-    return json.loads(data.decode("utf-8"))
+    response = json.loads(data.decode("utf-8"))
+
+    jpeg_bytes = None
+    if response.get("has_jpeg", False):
+        jpeg_len = struct.unpack(">I", recv_exact(sock, 4))[0]
+        jpeg_bytes = recv_exact(sock, jpeg_len)
+
+    return response, jpeg_bytes
 
 
 def main():
-
     print(f"Loading image from {IMAGE_PATH}...")
 
     img = cv2.imread(IMAGE_PATH)
@@ -77,34 +91,40 @@ def main():
     print(f"Connecting to {SERVER_HOST}:{SERVER_PORT} and sending {REQUESTS} requests...")
 
     timings = []
+    jpeg_sizes = []
     last_resp = None
 
     with socket.create_connection((SERVER_HOST, SERVER_PORT), timeout=10) as sock:
+        sock.settimeout(10.0)
 
         for i in range(REQUESTS):
-
             t0 = time.time()
 
-            send_request(sock, i, jpg)
-            resp = recv_response(sock)
+            send_request(sock, i, jpg, use_server_cam=USE_SERVER_CAM)
+            resp, jpeg_bytes = recv_response(sock)
 
             t1 = time.time()
 
-            timings.append((t1 - t0) * 1000.0)  # ms
+            timings.append((t1 - t0) * 1000.0)
             last_resp = resp
+
+            if jpeg_bytes is not None:
+                jpeg_sizes.append(len(jpeg_bytes))
 
     print("Last response:")
     print(json.dumps(last_resp, indent=2))
 
-    # Print all timings after measurement
+    if jpeg_sizes:
+        avg_jpeg_kb = sum(jpeg_sizes) / len(jpeg_sizes) / 1024.0
+        print(f"Returned JPEGs: {len(jpeg_sizes)}  average size: {avg_jpeg_kb:.1f} KB")
+
     for i, t in enumerate(timings):
         print(f"req {i+1:02d}: {t:6.1f} ms")
 
-    # Compute average over the last avg_start samples to skip any initial warmup / startup overhead
     avg_start = REQUESTS // 4
     avg_ms = sum(timings[avg_start:]) / len(timings[avg_start:])
 
-    print(f"\nAverage latency over the last {avg_start}..{REQUESTS} requests: {avg_ms:.1f} ms\n")
+    print(f"\nAverage latency over requests {avg_start+1}..{REQUESTS}: {avg_ms:.1f} ms\n")
 
 
 if __name__ == "__main__":
