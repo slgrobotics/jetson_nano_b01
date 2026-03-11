@@ -163,7 +163,14 @@ class TCPInferenceServer:
                     )
                     continue
 
-                if self.grabber is not None:
+                response = job.result
+                if response is None:
+                    send_json(sock, {"ok": False, "has_jpeg": False, "error": "missing_result"})
+                    continue
+
+                response = dict(response)  # defensive copy to modify
+
+                if self.grabber is not None and response.get("ok", False):  # Return dict["ok"] if the "ok" key exists (hopefully True), otherwise return the default "False"
                     ok, encoded = cv2.imencode(
                         '.jpg',
                         frame,
@@ -173,37 +180,11 @@ class TCPInferenceServer:
                         send_json(sock, {"ok": False, "has_jpeg": False, "error": "jpeg_encode_failed"})
                         continue
 
-                    response = job.result
-                    if response is None:
-                        send_json(sock, {"ok": False, "has_jpeg": False, "error": "missing_result"})
-                        continue
-
-                    response = dict(response)
-
-                    if self.grabber is not None and response.get("ok", False):
-                        ok, encoded = cv2.imencode(
-                            '.jpg',
-                            frame,
-                            [int(cv2.IMWRITE_JPEG_QUALITY), 80]
-                        )
-                        if not ok:
-                            send_json(sock, {"ok": False, "has_jpeg": False, "error": "jpeg_encode_failed"})
-                            continue
-
-                        response["has_jpeg"] = True
-                        send_json_with_jpeg(sock, response, encoded.tobytes())
-                    else:
-                        response["has_jpeg"] = False
-                        send_json(sock, response)
-
+                    response["has_jpeg"] = True
+                    send_json_with_jpeg(sock, response, encoded.tobytes())
                 else:
-                    response = job.result
-                    if response is None:
-                        send_json(sock, {"ok": False, "has_jpeg": False, "error": "missing_result"})
-                    else:
-                        response = dict(response)  # defensive copy
-                        response["has_jpeg"] = False
-                        send_json(sock, response)
+                    response["has_jpeg"] = False
+                    send_json(sock, response)
 
         except Exception as e:
             print(f"Client handler error {addr}: {e}", flush=True)
