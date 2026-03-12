@@ -428,18 +428,19 @@ Re-enable the GUI if needed:
 sudo systemctl set-default graphical.target
 ```
 
-**Note:** we cannot just replace the `--rm` argument with `--restart unless-stopped` to let the container persist through restarts. 
-At bootup the container would start with *nvargus-daemon* not fully active yet, and the pipeline will fail.
+**Note:** 
+- if using Nano's local camera we cannot just replace the `--rm` argument with `--restart unless-stopped` to let the container persist through restarts. 
+At bootup the container would start with *nvargus-daemon* not fully active yet, and the local camera pipeline will fail.
 We have to use delayed start via system service.
-
 Check this AI [guide](https://chatgpt.com/s/t_69b2f9dbe9dc8191b63484a429601663).
+- otherwise, with `--restart unless-stopped` argument, once started - the container will survive reboots. It will be automatically restarted after a reboot by docker itself, without additional interaction.
 
 The Docker run command is slightly modified:
 - we still have the `-it` (stdout/terminal) and `-rm` (cleanup after use) arguments
+- if not usung Nano's camera - just replace the `--rm` argument with `--restart unless-stopped` and remove the `--use_server_cam`
 - parts related to X11 are removed
 - the entry point is set to start the server
 
-Once started, the container will survive reboots: it will be automatically restarted after a reboot without additional interaction.
 ```
 docker run -it -rm \
   --net=host \
@@ -509,6 +510,11 @@ docker stop duckpack; docker rm duckpack
 If the container is running in the background after the reboot, you must manually re-connect to see the output or type commands: 
 ```
 docker attach duckpack
+```
+
+Check camera pipeline daemon on host:
+```
+systemctl is-active nvargus-daemon
 ```
 
 -------------------------
