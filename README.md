@@ -432,6 +432,7 @@ The Docker run command is slightly modified:
 - the --rm argument is replaced with --restart unless-stopped
 - parts related to X11 are removed
 - the entry point is set to start the server
+- note the `sleep 60` at the entry point - the delay is needed for the camera pipeline to activate.
 
 Once started, the container will survive reboots: it will be automatically restarted after a reboot without additional interaction.
 ```
@@ -447,7 +448,36 @@ docker run -it \
   -v /home/jetson/jetson_nano_b01:/code/src/dt-duckpack-yolo/shared \
   -v /tmp/argus_socket:/tmp/argus_socket \
   duckpack \
-  bash -lc "cd shared/src; python3 yolo_tcp_server_cam.py --model yolo11n.engine --imgsz 480 --warmup 3 --host 0.0.0.0 --port 5001 --use_server_cam"
+  bash -lc "cd shared/src; sleep 60; python3 yolo_tcp_server_cam.py --model yolo11n.engine --imgsz 480 --warmup 3 --host 0.0.0.0 --port 5001 --use_server_cam"
+```
+
+### Managing log files
+
+Check the size of log files:
+```
+sudo du -sh /var/lib/docker/containers
+```
+
+Clear logs for all containers:
+```
+sudo truncate -s 0 /var/lib/docker/containers/*/*-json.log
+```
+
+Limit the size of logs - edit */etc/docker/daemon.json* (this keeps logs at 40 MB max per container):
+```
+{
+    "runtimes": {
+        "nvidia": {
+            "path": "nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    },
+    "log-driver": "json-file",
+    "log-opts": {
+        "max-size": "20m",
+        "max-file": "2"
+    }
+}
 ```
 
 ### Useful monitoring commands
@@ -469,8 +499,7 @@ sudo systemctl restart duckpack
 
 If you want to recreate it cleanly - stop and remove the container:
 ```
-docker stop duckpack
-docker rm duckpack
+docker stop duckpack; docker rm duckpack
 ```
 
 Then run it again with new options.
