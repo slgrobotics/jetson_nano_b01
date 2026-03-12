@@ -411,6 +411,70 @@ Average latency over requests 6..20: 72.3 ms
 The inference server can be called, for example, from a computer on the same LAN, a [ROS2 node](https://github.com/slgrobotics/ros2_jetson_nano_inference) etc.
 See this [AI Chat](https://chatgpt.com/s/t_69ab6eac6b0081919c64ed4045987d0f) for possibilities.
 
+### Headless operation
+
+When working with the ROS2 [inference client](https://github.com/slgrobotics/ros2_jetson_nano_inference),
+Jetson Nano should behave as a maintenance-free intelligent camera rather than as a general-purpose computer.
+
+Here is how to run the server in headless mode (see this AI [guide](https://chatgpt.com/s/t_69b2da2183b881918293ff0a24922169)).
+
+Disable the GUI to save RAM and speed up boot:
+```
+sudo systemctl set-default multi-user.target
+```
+
+Re-enable the GUI if needed:
+```
+sudo systemctl set-default graphical.target
+```
+
+The Docker run command is slightly modified:
+- the --rm argument is replaced with --restart unless-stopped
+- parts related to X11 are removed
+- the entry point is set to start the server
+
+Once started, the container will survive reboots: it will be automatically restarted after a reboot without additional interaction.
+```
+docker run -it \
+  --restart unless-stopped \
+  --net=host \
+  --runtime nvidia \
+  --privileged \
+  --ipc=host \
+  --cpuset-cpus="0-2" --cpus="2.7" \
+  --memory="3200m" --memory-swap="3200m" \
+  --name duckpack \
+  -v /home/jetson/jetson_nano_b01:/code/src/dt-duckpack-yolo/shared \
+  -v /tmp/argus_socket:/tmp/argus_socket \
+  duckpack \
+  bash -lc "cd shared/src; python3 yolo_tcp_server_cam.py --model yolo11n.engine --imgsz 480 --warmup 3 --host 0.0.0.0 --port 5001 --use_server_cam"
+```
+
+### Useful monitoring commands
+
+Check container:
+```
+docker logs duckpack
+```
+
+Follow logs live:
+```
+docker logs -f duckpack
+```
+
+Restart manually:
+```
+sudo systemctl restart duckpack
+```
+
+If you want to recreate it cleanly - stop and remove the container:
+```
+docker stop duckpack
+docker rm duckpack
+```
+
+Then run it again with new options.
+
 -------------------------
 
 Back to [Main Project Home](https://github.com/slgrobotics/articubot_one/wiki)
