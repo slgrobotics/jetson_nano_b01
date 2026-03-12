@@ -428,16 +428,20 @@ Re-enable the GUI if needed:
 sudo systemctl set-default graphical.target
 ```
 
+**Note:** we cannot just replace the `--rm` argument with `--restart unless-stopped` to let the container persist through restarts. 
+At bootup the container would start with *nvargus-daemon* not fully active yet, and the pipeline will fail.
+We have to use delayed start via system service.
+
+Check this AI [guide](https://chatgpt.com/s/t_69b2f9dbe9dc8191b63484a429601663).
+
 The Docker run command is slightly modified:
-- the --rm argument is replaced with --restart unless-stopped
+- we still have the `-it` (stdout/terminal) and `-rm` (cleanup after use) arguments
 - parts related to X11 are removed
 - the entry point is set to start the server
-- note the `sleep 60` at the entry point - the delay is needed for the camera pipeline to activate.
 
 Once started, the container will survive reboots: it will be automatically restarted after a reboot without additional interaction.
 ```
-docker run -it \
-  --restart unless-stopped \
+docker run -it -rm \
   --net=host \
   --runtime nvidia \
   --privileged \
@@ -448,7 +452,7 @@ docker run -it \
   -v /home/jetson/jetson_nano_b01:/code/src/dt-duckpack-yolo/shared \
   -v /tmp/argus_socket:/tmp/argus_socket \
   duckpack \
-  bash -lc "cd shared/src; sleep 60; python3 yolo_tcp_server_cam.py --model yolo11n.engine --imgsz 480 --warmup 3 --host 0.0.0.0 --port 5001 --use_server_cam"
+  bash -lc "cd shared/src; python3 yolo_tcp_server_cam.py --model yolo11n.engine --imgsz 480 --warmup 3 --host 0.0.0.0 --port 5001 --use_server_cam"
 ```
 
 ### Managing log files
@@ -497,12 +501,15 @@ Restart manually:
 sudo systemctl restart duckpack
 ```
 
-If you want to recreate it cleanly - stop and remove the container:
+Stop and remove the persistent (`--restart unless-stopped`) container - then run it again with new options:
 ```
 docker stop duckpack; docker rm duckpack
 ```
 
-Then run it again with new options.
+If the container is running in the background after the reboot, you must manually re-connect to see the output or type commands: 
+```
+docker attach duckpack
+```
 
 -------------------------
 
