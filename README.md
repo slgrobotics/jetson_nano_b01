@@ -595,6 +595,7 @@ nmap -sT -p- jetson.local
 - https://chatgpt.com/s/t_69b42af067908191addfc32a62ab1353 - general jetson Nano case
 - https://chatgpt.com/s/t_69b42abf593c81918cf09b89a86abe70 - considerations for TCP/IP server in a container
 - https://chatgpt.com/s/t_69b4358b05d48191b15f211d55bb4293 - extra hardening with "deny outgoing"
+- https://chatgpt.com/s/t_69b436d5e64481918800d5caa0057eed - final "network appliance" rules
 
 Short version:
 ```
