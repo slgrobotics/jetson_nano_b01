@@ -505,7 +505,7 @@ sudo du -sh /var/lib/docker/containers
 
 Clear logs for all containers:
 ```
-sudo truncate -s 0 /var/lib/docker/containers/*/*-json.log
+sudo bash -c "truncate -s 0 /var/lib/docker/containers/*/*-json.log"
 ```
 
 Limit the size of logs - edit */etc/docker/daemon.json* (this keeps logs at 40 MB max per container):
