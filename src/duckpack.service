@@ -1,0 +1,16 @@
+[Unit]
+Description=Duckpack container after Argus is ready
+Requires=docker.service
+After=docker.service nvargus-daemon.service
+Wants=nvargus-daemon.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+ExecStart=/home/jetson/jetson_nano_b01/src/start-duckpack.sh
+ExecStop=/usr/bin/docker stop duckpack
+
+[Install]
+WantedBy=multi-user.target
+
