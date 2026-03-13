@@ -436,13 +436,14 @@ Check this AI [guide](https://chatgpt.com/s/t_69b2f9dbe9dc8191b63484a429601663).
 - otherwise, with `--restart unless-stopped` argument, once started - the container will survive reboots. It will be automatically restarted after a reboot by docker itself, without additional interaction.
 
 The Docker run command is slightly modified:
-- we still have the `-it` (stdout/terminal) and `-rm` (cleanup after use) arguments
-- if not usung Nano's camera - just replace the `--rm` argument with `--restart unless-stopped` and remove the `--use_server_cam`
+- we don't have the `-it` (*stdout/terminal*) and `-rm` (*remove container after use*) arguments
+- the `-d` starts container in *detached* mode - quitting terminal does not stop the container
+- if not using Nano's camera - just add `--restart unless-stopped` argument and remove the `--use_server_cam`
 - parts related to X11 are removed
 - the entry point is set to start the server
 
 ```
-docker run -it -rm \
+docker run -d \
   --net=host \
   --runtime nvidia \
   --privileged \
@@ -455,6 +456,45 @@ docker run -it -rm \
   duckpack \
   bash -lc "cd shared/src; python3 yolo_tcp_server_cam.py --model yolo11n.engine --imgsz 480 --warmup 3 --host 0.0.0.0 --port 5001 --use_server_cam"
 ```
+
+We can query (`docker ps -a`) container status, stop it (`docker stop duckpack`). If anything wrong - remove it: `docker rm duckpack`
+
+The container will remain in dormant (*"Exited"*) state until restarted (`docker start duckpack`). It will survive reboots.
+
+### Docker as a service (when using the local camera)
+
+To avoid crashes caused by the slow startup of *nvargus-daemon*, the container is started by *systemd* after a readiness check (alternatively, after a fixed delay).
+
+See the AI [guide](https://chatgpt.com/s/t_69b2f9dbe9dc8191b63484a429601663) for details.
+
+The repository contains two required files. Make sure they are present:
+- a startup script: `~/jetson_nano_b01/src/start-duckpack.sh`
+- a service file: `~/jetson_nano_b01/src/duckpack.service`
+
+Deploy the service file:
+```
+sudo cp ~/jetson_nano_b01/src/duckpack.service /etc/systemd/system/.
+```
+
+Reload systemd and enable the service:
+```
+sudo systemctl daemon-reload
+sudo systemctl enable duckpack
+sudo systemctl start duckpack
+```
+
+Check the container status:
+```
+docker ps -a
+
+CONTAINER ID   IMAGE      COMMAND                  CREATED          STATUS                            PORTS     NAMES
+a86669a1d8d6   duckpack   "/entrypoint.sh bash…"   35 minutes ago   Up 5 seconds (health: starting)             duckpack
+(the status will change to "Up About a minute (healthy)" soon)
+```
+
+After reboot, the service should start the container automatically, and the ROS2 client should be able to connect within 2–3 minutes after power-up.
+
+The Nano’s *Power* button initiates a graceful shutdown.
 
 ### Managing log files
 
@@ -487,14 +527,18 @@ Limit the size of logs - edit */etc/docker/daemon.json* (this keeps logs at 40 M
 
 ### Useful monitoring commands
 
-Check container:
+List and manage containers:
 ```
-docker logs duckpack
+docker ps        # running only
+docker ps -a     # stopped and running
+docker ps -aq    # all containers' names
+docker rm $(docker ps -aq)  # remove all containers (not images)
 ```
 
-Follow logs live:
+Check container logs:
 ```
-docker logs -f duckpack
+docker logs duckpack
+docker logs -f duckpack   # follow logs live
 ```
 
 Restart manually:
@@ -507,7 +551,7 @@ Stop and remove the persistent (`--restart unless-stopped`) container - then run
 docker stop duckpack; docker rm duckpack
 ```
 
-If the container is running in the background after the reboot, you must manually re-connect to see the output or type commands: 
+If the container is running in the background after the reboot (`docker run -d`), you must manually re-connect to see the output or type commands: 
 ```
 docker attach duckpack
 ```
@@ -516,6 +560,8 @@ Check camera pipeline daemon on host:
 ```
 systemctl is-active nvargus-daemon
 ```
+
+For more docker commands check this [guide](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano#useful-commands).
 
 -------------------------
 
