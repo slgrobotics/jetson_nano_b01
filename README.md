@@ -563,6 +563,77 @@ systemctl is-active nvargus-daemon
 
 For more docker commands check this [guide](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano#useful-commands).
 
+### Hardening Jetson Nano - restricting network access
+
+**Tip:** save the output of the `sudo ss -ltnp` command on Nano and feed it to the AI:
+```
+Explain this from the point of view of network security and vulnerability:
+---
+jetson@jetson:~$ sudo ss -ltnp
+State  Recv-Q  Send-Q  Local Address:Port  Peer Address:Port                                                                                              
+LISTEN    0     128          0.0.0.0:111        0.0.0.0:*  users:(("rpcbind",pid=3418,fd=8))
+...
+---
+```
+Here is an [example](https://chatgpt.com/s/t_69b431f9f4448191acaa50e2d714409e) of such analisys.
+
+Disable unused `rpcbind`:
+```
+sudo systemctl disable rpcbind
+sudo systemctl stop rpcbind
+```
+
+Use `nmap` from another machine to see open ports: 
+```
+sudo apt  install nmap
+nmap -sT -p- jetson.local
+```
+
+**Q:** I have an Nvidia Jetson Nano under Ubuntu 18.04, updated. I run a TCP/IP server on it which operates on port 5001. I access to the OS via SSH. I want to close any other network access to it and limit all access to LAN.
+
+**A:** See these AI guides:
+- https://chatgpt.com/s/t_69b42af067908191addfc32a62ab1353 - general jetson Nano case
+- https://chatgpt.com/s/t_69b42abf593c81918cf09b89a86abe70 - considerations for TCP/IP server in a container
+- https://chatgpt.com/s/t_69b4358b05d48191b15f211d55bb4293 - extra hardening with "deny outgoing"
+
+Short version:
+```
+# See what interface and IP the Nano has
+ip addr
+
+# See what is listening
+sudo ss -ltnp | grep -E ':22|:5001'
+
+# Install and check UFW:
+sudo apt install ufw
+sudo ufw status verbose
+
+# Block all incoming connections unless explicitly allowed:
+sudo ufw reset
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# SSH only from your LAN
+sudo ufw allow proto tcp from 192.168.1.0/24 to any port 22
+
+# Duckpack server only from your LAN
+sudo ufw allow proto tcp from 192.168.1.0/24 to any port 5001
+
+sudo ufw enable
+sudo ufw status numbered  # or: sudo ufw status verbose
+```
+
+From another machine on the LAN:
+```
+nc -vz jetson.local 5001
+# Connection to jetson.local (...) 5001 port [tcp/*] succeeded!
+
+ssh jetson@jetson.local
+# jetson@jetson:~$
+```
+
+From outside that subnet, both "22" and "5001" ports should be blocked.
+
 -------------------------
 
 Back to [Main Project Home](https://github.com/slgrobotics/articubot_one/wiki)
