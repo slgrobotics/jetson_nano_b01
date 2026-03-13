@@ -1,10 +1,10 @@
 Back to [Main Project Home](https://github.com/slgrobotics/articubot_one/wiki)
 
+If you are looking for **ROS 2 compatible Inference Server** - skip to [this section](https://github.com/slgrobotics/jetson_nano_b01/blob/main/README.md#inference-tcpip-server).
+
 ## Experiments with Jetson Nano B01
 
 This is a collection of files and docs related to my experiments with NVIDIA Jetson Nano B01 (2020 DevKit with two camera connectors).
-
-If you are looking for **ROS 2 compatible Inference Server** - skip to [this section](https://github.com/slgrobotics/jetson_nano_b01/blob/main/README.md#inference-tcpip-server).
 
 The machine and OS (and other experiments) are described [here](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano).
 
