@@ -250,6 +250,22 @@ infer_fps= 2.50  len(results)=1  frame.shape=(480, 640, 3)
 ```
 Note the `infer_ms=97.5` and `infer_fps= 2.50` values. The inference engine is fast (~0.1s), while the image capturing and loop overhead takes about 0.2s.
 
+Want to try other models? here is what AI [recommends](https://chatgpt.com/s/t_69b58b128910819180074a6104fb44d2).
+
+Given Nano’s limits (4 GB RAM + small GPU), realistically usable models are:
+```
+yolo11n.pt
+yolo11s.pt
+yolov8n.pt
+```
+
+Anything larger usually becomes slow once converted to TensorRT.
+
+Here are some links:
+- https://github.com/ultralytics/ultralytics  - Ultralytics GitHub
+- https://docs.ultralytics.com/models/yolo11/ - YOLO11 docs (includes "How do I train..." section)
+- https://huggingface.co/Ultralytics/YOLO11 - Ultralytics on HuggingFace
+
 ### Exporting models as *engine*
 
 The following Python code (*model_export.py*) will download model, invoke Ultralytics *AutoUpdate* and save the "*.engine*" file in the current directory.
