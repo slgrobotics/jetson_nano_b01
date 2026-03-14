@@ -332,6 +332,15 @@ There are other optimizations that can be applied to maximize performance:
 
 **Note:** the servers described here are intended to work with [ROS2 Inference package](https://github.com/slgrobotics/ros2_jetson_nano_inference)
 
+**Tip:** Setting up a lean headless appliance:
+- use a 32 GB "high endurance" SD card and follow OS installation [process](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano)
+- do not change swapping from default (except, maybe, *swappiness*)
+- switch to non-desktop operation early, use SSH to configure everything
+- build the Docker file as described above
+- run the container as described above, test camera pipelines
+- in the container shell build the *yolo11n* engine (run `python3 model_export.py`, the engine file will be preserved in shared folder)
+- follow steps below
+
 There are two versions of the server:
 - `src/yolo_tcp_server.py` (simplified, deprecated) performs inference on JPEG images delivered to it via TCP/IP
 - `src/yolo_tcp_server_cam.py` (recommended) can do all the above or use local Jetson Nano camera (`--use_server_cam`)
