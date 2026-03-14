@@ -563,6 +563,32 @@ systemctl is-active nvargus-daemon
 
 For more docker commands check this [guide](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano#useful-commands).
 
+### Configuring WiFi
+
+On Jetson Nano with Ubuntu 18.04 (JetPack 4.x), Wi-Fi is normally managed by NetworkManager. The cleanest way to configure wlan0 is with nmcli (command-line).
+
+```
+jetson@jetson:~$ nmcli device
+DEVICE           TYPE      STATE      CONNECTION         
+eth0             ethernet  connected  Wired connection 1 
+wlan0            wifi                 aaid1               
+
+jetson@jetson:~$ nmcli device wifi list
+IN-USE  SSID        MODE   CHAN  RATE        SIGNAL  BARS  SECURITY  
+        ssid1       Infra  10    130 Mbit/s  100     ▂▄▆█  WPA2      
+        --          Infra  10    130 Mbit/s  100     ▂▄▆█  WPA2      
+
+jetson@jetson:~$ sudo nmcli device wifi connect <MyNetworkSSID> password <mypassword>
+Device 'wlan0' successfully activated with '...'
+
+jetson@jetson:~$ sudo apt install nload
+...
+jetson@jetson:~$ nload wlan0
+```
+With the server working in "*local camera*" mode, server calls per second around ~9..10 , incoming (to Nano) traffic is ~47 KBit/s, outgoung (image+detections) - ~2.81 MBit/s.
+
+More info in this AI [guide](https://chatgpt.com/s/t_69b585ff51fc8191b01ad135dbab5b6b).
+
 ### Hardening Jetson Nano - restricting network access
 
 **Tip:** save the output of the `sudo ss -ltnp` command on Nano and feed it to the AI:
