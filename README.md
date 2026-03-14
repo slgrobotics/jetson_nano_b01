@@ -587,7 +587,7 @@ On Jetson Nano with Ubuntu 18.04 (JetPack 4.x), Wi-Fi is normally managed by Net
 jetson@jetson:~$ nmcli device
 DEVICE           TYPE      STATE      CONNECTION         
 eth0             ethernet  connected  Wired connection 1 
-wlan0            wifi                 aaid1               
+wlan0            wifi 
 
 jetson@jetson:~$ nmcli device wifi list
 IN-USE  SSID        MODE   CHAN  RATE        SIGNAL  BARS  SECURITY  
