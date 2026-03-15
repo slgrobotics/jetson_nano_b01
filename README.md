@@ -659,7 +659,14 @@ sudo ss -ltnp | grep -E ':22|:5001'
 # Install and check UFW:
 sudo apt install ufw
 sudo ufw status verbose
+```
+Nano's IPV6 is disabled, so the firewall needs to [know](https://chatgpt.com/s/t_69b6ca45f8f48191aef04fc19d459cce) about it.
 
+Edit the UFW config file: `/etc/default/ufw`
+
+Find this line: `IPV6=yes` change it to: `IPV6=no`, save.
+
+```
 # Block all incoming connections unless explicitly allowed:
 sudo ufw reset
 sudo ufw default deny incoming
@@ -675,7 +682,11 @@ sudo ufw enable
 sudo ufw status numbered  # or: sudo ufw status verbose
 ```
 
-From another machine on the LAN:
+**Note:** check the "*Logging: on (low)*" when using `verbose` mode.
+The UFW will only log *BLOCKED* packets and will rotate log in `/var/log/ufw.log`.
+You can disable UFW logging: `sudo ufw logging off`
+
+Test access from another machine on the LAN:
 ```
 nc -vz jetson.local 5001
 # Connection to jetson.local (...) 5001 port [tcp/*] succeeded!
