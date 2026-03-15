@@ -341,6 +341,10 @@ There are other optimizations that can be applied to maximize performance:
 - in the container shell build the *yolo11n* engine (run `python3 model_export.py`, the engine file will be preserved in shared folder)
 - follow steps below
 
+<img width="460" alt="jetson_cam" src="https://github.com/user-attachments/assets/d8231e9a-3182-45b0-bf4a-05a64b7aed67" />
+
+**Note:** Jetson Nano takes 5.2V and consumes at most 1.5A when running camera server. 
+
 There are two versions of the server:
 - `src/yolo_tcp_server.py` (simplified, deprecated) performs inference on JPEG images delivered to it via TCP/IP
 - `src/yolo_tcp_server_cam.py` (recommended) can do all the above or use local Jetson Nano camera (`--use_server_cam`)
