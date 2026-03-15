@@ -95,6 +95,12 @@ class TCPInferenceServer:
                 frame_id = header.get("frame_id")
                 timestamp_ns = int(header.get("timestamp_ns", 0))
                 received_ns = time.time_ns()
+                # Client can request a JPEG for visualization, but does it only if using server camera feed
+                raw_request_jpeg = header.get("request_jpeg", False)
+                request_jpeg = raw_request_jpeg is True
+
+                if request_jpeg:
+                    print(f"Error: Client requested JPEG for frame {frame_id} at {timestamp_ns} ns. Use 'src/yolo_tcp_server_cam.py' with local camera", flush=True)
 
                 job = InferenceJob(
                     frame_id=frame_id,
