@@ -139,7 +139,9 @@ class TCPInferenceServer:
                 frame_id = header.get("frame_id")
                 timestamp_ns = int(header.get("timestamp_ns", 0))
                 received_ns = time.time_ns()
-                request_jpeg = bool(header.get("request_jpeg", False))  # Client can request a JPEG for visualization, only if using server camera feed
+                # Client can request a JPEG for visualization, but does it only if using server camera feed
+                raw_request_jpeg = header.get("request_jpeg", False)
+                request_jpeg = raw_request_jpeg is True
 
                 job = InferenceJob(
                     frame_id=frame_id,
