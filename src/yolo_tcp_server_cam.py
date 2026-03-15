@@ -139,6 +139,7 @@ class TCPInferenceServer:
                 frame_id = header.get("frame_id")
                 timestamp_ns = int(header.get("timestamp_ns", 0))
                 received_ns = time.time_ns()
+                request_jpeg = bool(header.get("request_jpeg", False))  # Client can request a JPEG for visualization, only if using server camera feed
 
                 job = InferenceJob(
                     frame_id=frame_id,
@@ -170,11 +171,20 @@ class TCPInferenceServer:
 
                 response = dict(response)  # defensive copy to modify
 
-                if self.grabber is not None and response.get("ok", False):  # Return dict["ok"] if the "ok" key exists (hopefully True), otherwise return the default "False"
+                """
+                if not self.quiet:
+                    print(
+                        f"frame_id={frame_id} request_jpeg={request_jpeg} "
+                        f"ok={response.get('ok', False)} use_server_cam={self.grabber is not None}",
+                        flush=True,
+                    )
+                """
+
+                if self.grabber is not None and response.get("ok", False) and request_jpeg:   # Return dict["ok"] if the "ok" key exists (hopefully True), otherwise return the default "False"
                     ok, encoded = cv2.imencode(
-                        '.jpg',
+                        ".jpg",
                         frame,
-                        [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+                        [int(cv2.IMWRITE_JPEG_QUALITY), 80],
                     )
                     if not ok:
                         send_json(sock, {"ok": False, "has_jpeg": False, "error": "jpeg_encode_failed"})
