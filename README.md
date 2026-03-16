@@ -343,7 +343,11 @@ There are other optimizations that can be applied to maximize performance:
 
 <img width="460" alt="jetson_cam" src="https://github.com/user-attachments/assets/d8231e9a-3182-45b0-bf4a-05a64b7aed67" />
 
-**Note:** Jetson Nano takes 5.2V and consumes at most 1.5A when running camera server. 
+**Note:**
+- Jetson Nano takes 5.2V and consumes at most 1.5A when running camera server.
+Still, a 15W "*USB charger*" power supply is not a good option, use 5A-10A DC-DC converter for 12V power source.
+- fix max clocks for CPU: `sudo jetson_clocks`
+- edit `/etc/sysctl.conf`  - add `vm.swappiness=10` to increase swapping threshold (Nano swaps to RAM by default)
 
 There are two versions of the server:
 - `src/yolo_tcp_server.py` (simplified, deprecated) performs inference on JPEG images delivered to it via TCP/IP
