@@ -18,6 +18,15 @@ from dt_robot_utils import get_robot_name
 
 import shlex
 
+# ------------------------------------------
+#
+# This is a ROS1 (bionic) test node inspired by:
+#    https://github.com/masterhapero/dt-duckpack-yolov11/blob/ente-yolo/packages/yolo_node/src/yolo_interference_node.py
+#
+# For a modern ROS2 node see https://github.com/slgrobotics/ros2_jetson_nano_inference package
+#
+# ------------------------------------------
+
 class ArgusStdoutGrabber:
     def __init__(self, sensor_id, width, height, fps):
         self.sensor_id = sensor_id
