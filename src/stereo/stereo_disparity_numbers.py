@@ -11,7 +11,8 @@ Now the "disparity" picture started making sense, I want to improve code a bit.
  Say, the screen is divided by 10x10 cells for that purpose.
  Normally starts with the heatmap, but can be switched to raw colors by any other key but the space and "q" (as quit)
 
- See https://chatgpt.com/s/t_69b97c6ac4188191929289332c6f6c83
+ See - https://chatgpt.com/s/t_69b97c6ac4188191929289332c6f6c83
+     - https://chatgpt.com/s/t_69b980a930548191966da7068d27cfcb
 """
 
 def gstreamer_pipeline(sensor_id=0, width=1280, height=720, fps=30, flip_method=0):
