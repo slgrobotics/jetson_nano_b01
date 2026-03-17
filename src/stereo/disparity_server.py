@@ -177,7 +177,8 @@ def extract_sparse_points(disparity, points_3d, rows, cols, min_valid_disp, max_
 
 
 def pack_packet(seq, rows, cols, points):
-    stamp_ns = time.time_ns()
+    stamp_ns = int(time.time() * 1e9)  # Python 3.6 compatible
+
     header = HEADER_STRUCT.pack(
         HEADER_MAGIC,
         HEADER_VERSION,
