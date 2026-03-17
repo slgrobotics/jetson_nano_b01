@@ -60,16 +60,12 @@ MAX_RANGE_M = 5.0
 MIN_CONFIDENCE = 0.02   # valid fraction in cell
 
 SHOW_PREVIEW = False
-SHOW_DISPARITY = True
+SHOW_DISPLAY = True   # display ON by default
 
-# Packet format:
-# Header: magic(4s), version(B), rows(B), cols(B), reserved(B),
-#         seq(I), stamp_ns(Q), point_count(H), reserved2(H)
 HEADER_STRUCT = struct.Struct("<4sBBBBIQHH")
 HEADER_MAGIC = b"SPC2"
 HEADER_VERSION = 1
 
-# Point: x(f), y(f), z(f), confidence(f), row(H), col(H)
 POINT_STRUCT = struct.Struct("<ffffHH")
 
 
@@ -103,6 +99,21 @@ def draw_horizontal_lines(img, step=40):
     return out
 
 
+def draw_grid(img, rows=10, cols=10, color=(255, 255, 255), thickness=1):
+    out = img.copy()
+    h, w = out.shape[:2]
+
+    for r in range(1, rows):
+        y = int(r * h / rows)
+        cv2.line(out, (0, y), (w - 1, y), color, thickness)
+
+    for c in range(1, cols):
+        x = int(c * w / cols)
+        cv2.line(out, (x, 0), (x, h - 1), color, thickness)
+
+    return out
+
+
 def make_raw_disparity_view(disparity, min_disp, num_disp):
     disp_vis = (disparity - min_disp) / num_disp
     disp_vis = np.clip(disp_vis, 0, 1)
@@ -110,12 +121,72 @@ def make_raw_disparity_view(disparity, min_disp, num_disp):
     return cv2.applyColorMap(disp_vis, cv2.COLORMAP_JET)
 
 
+def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
+    if disparity_px <= 0:
+        return None
+    z_m = (focal_px * baseline_m) / disparity_px
+    return z_m * 100.0
+
+
+def overlay_cell_distances(
+    img,
+    disparity,
+    focal_px,
+    baseline_m,
+    rows=10,
+    cols=10,
+    min_valid_disp=1.0,
+    max_depth_cm=999,
+):
+    out = draw_grid(img, rows=rows, cols=cols, color=(255, 255, 255), thickness=1)
+    h, w = disparity.shape[:2]
+
+    for r in range(rows):
+        y0 = int(r * h / rows)
+        y1 = int((r + 1) * h / rows)
+
+        for c in range(cols):
+            x0 = int(c * w / cols)
+            x1 = int((c + 1) * w / cols)
+
+            cell = disparity[y0:y1, x0:x1]
+            valid = cell > min_valid_disp
+
+            if not np.any(valid):
+                text = "--"
+            else:
+                closest_disp = float(np.max(cell[valid]))
+                depth_cm = estimate_depth_cm_from_disparity(
+                    closest_disp, focal_px, baseline_m
+                )
+
+                if depth_cm is None or not np.isfinite(depth_cm):
+                    text = "--"
+                else:
+                    depth_cm = min(depth_cm, max_depth_cm)
+                    text = f"{int(round(depth_cm))}"
+
+            cx = x0 + (x1 - x0) // 2
+            cy = y0 + (y1 - y0) // 2
+
+            cv2.putText(
+                out, text, (cx - 18, cy + 6),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 3, cv2.LINE_AA
+            )
+            cv2.putText(
+                out, text, (cx - 18, cy + 6),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA
+            )
+
+    return out
+
+
 def cam_to_ros(x_cam, y_cam, z_cam):
     """
-    OpenCV stereo camera coordinates are typically:
+    OpenCV stereo camera coordinates:
       x right, y down, z forward
 
-    Convert to ROS body-ish convention:
+    ROS-like convention:
       x forward, y left, z up
     """
     x_ros = z_cam
@@ -130,7 +201,7 @@ def extract_sparse_points(disparity, points_3d, rows, cols, min_valid_disp, max_
 
     Strategy:
     - valid disparity mask in cell
-    - pick 95th percentile disparity (close obstacle, less noisy than max)
+    - pick 95th percentile disparity
     - choose actual pixel nearest that target disparity
     - emit XYZ + confidence + grid row/col
     """
@@ -206,10 +277,15 @@ def main():
     mapRx = calib["mapRx"]
     mapRy = calib["mapRy"]
     Q = calib["Q"]
+    PL = calib["PL"]
+    T = calib["T"]
 
     width = int(calib["image_width"])
     height = int(calib["image_height"])
     fps = 30
+
+    focal_px = float(PL[0, 0])
+    baseline_m = float(np.linalg.norm(T))
 
     capL = open_camera(0, width, height, fps)
     capR = open_camera(1, width, height, fps)
@@ -237,6 +313,7 @@ def main():
     seq = 0
     last_time = time.time()
     fps_filtered = 0.0
+    show_display = SHOW_DISPLAY
 
     try:
         while True:
@@ -252,8 +329,6 @@ def main():
             right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
 
             disparity = stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
-
-            # Reproject full disparity to 3D, then sample sparse points by cell
             points_3d = cv2.reprojectImageTo3D(disparity, Q, handleMissingValues=False)
 
             points = extract_sparse_points(
@@ -287,23 +362,62 @@ def main():
                 ])
                 cv2.imshow("Rectified Pair", rect_preview)
 
-            if SHOW_DISPARITY:
-                raw_disp = make_raw_disparity_view(disparity, min_disp, num_disp)
+            if show_display:
+                disp_view = make_raw_disparity_view(disparity, min_disp, num_disp)
+                disp_view = overlay_cell_distances(
+                    disp_view,
+                    disparity,
+                    focal_px=focal_px,
+                    baseline_m=baseline_m,
+                    rows=GRID_ROWS,
+                    cols=GRID_COLS,
+                    min_valid_disp=MIN_VALID_DISP,
+                    max_depth_cm=int(MAX_RANGE_M * 100.0),
+                )
+
                 cv2.putText(
-                    raw_disp,
+                    disp_view,
                     f"seq={seq} points={len(points)} fps={fps_filtered:.2f}",
-                    (20, 30),
+                    (20, 25),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.7,
                     (255, 255, 255),
                     2,
                     cv2.LINE_AA,
                 )
-                cv2.imshow("Disparity", raw_disp)
+                cv2.putText(
+                    disp_view,
+                    "space=toggle display | q=quit",
+                    (20, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 255),
+                    2,
+                    cv2.LINE_AA,
+                )
+                cv2.putText(
+                    disp_view,
+                    f"f={focal_px:.0f}px B={baseline_m*100:.1f}cm",
+                    (20, 75),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 255, 255),
+                    2,
+                    cv2.LINE_AA,
+                )
+
+                cv2.imshow("Disparity", disp_view)
+            else:
+                try:
+                    cv2.destroyWindow("Disparity")
+                except cv2.error:
+                    pass
 
             key = cv2.waitKey(1) & 0xFF
             if key in (27, ord("q")):
                 break
+            elif key == ord(" "):
+                show_display = not show_display
 
             seq += 1
 
