@@ -11,6 +11,17 @@ Now the "disparity" picture started making sense, I want to improve code a bit.
  Say, the screen is divided by 10x10 cells for that purpose.
  Normally starts with the heatmap, but can be switched to raw colors by any other key but the space and "q" (as quit)
 
+The script is doing all of this every frame:
+ - read 2 cameras
+ - remap left
+ - remap right
+ - grayscale conversion
+ - SGBM disparity
+ - colorize disparity
+ - scan 10×10 cells
+ - draw overlays
+ - optionally render the preview window
+
  See - https://chatgpt.com/s/t_69b97c6ac4188191929289332c6f6c83
      - https://chatgpt.com/s/t_69b980a930548191966da7068d27cfcb
 """
@@ -152,7 +163,7 @@ def main():
     capR = open_camera(1, width, height, fps)
 
     min_disp = 0
-    num_disp = 16 * 6
+    num_disp = 16 * 6  # "16 * 3" will increase FPS from 1.0 to 1.8, but quality will suffer 
     block_size = 7
 
     stereo = cv2.StereoSGBM_create(
@@ -187,6 +198,7 @@ def main():
         left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
         right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
 
+        # Likely main FPS bottleneck:
         disparity = stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
 
         valid = disparity > min_disp
