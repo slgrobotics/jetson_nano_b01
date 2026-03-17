@@ -43,7 +43,6 @@ Receiver expectations:
  - publish PointCloud2
 
 The cloud will be sparse but immediately useful.
-
 """
 
 # =========================
@@ -60,7 +59,8 @@ MAX_RANGE_M = 5.0
 MIN_CONFIDENCE = 0.02   # valid fraction in cell
 
 SHOW_PREVIEW = False
-SHOW_DISPLAY = True   # display ON by default
+SHOW_DISPLAY = True          # display ON by default
+START_IN_HEATMAP_MODE = False  # False = disparity, True = depth heatmap
 
 HEADER_STRUCT = struct.Struct("<4sBBBBIQHH")
 HEADER_MAGIC = b"SPC2"
@@ -115,7 +115,7 @@ def draw_grid(img, rows=10, cols=10, color=(255, 255, 255), thickness=1):
 
 
 def make_raw_disparity_view(disparity, min_disp, num_disp):
-    disp_vis = (disparity - min_disp) / num_disp
+    disp_vis = (disparity - min_disp) / float(num_disp)
     disp_vis = np.clip(disp_vis, 0, 1)
     disp_vis = (disp_vis * 255).astype(np.uint8)
     return cv2.applyColorMap(disp_vis, cv2.COLORMAP_JET)
@@ -126,6 +126,33 @@ def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
         return None
     z_m = (focal_px * baseline_m) / disparity_px
     return z_m * 100.0
+
+
+def make_depth_heatmap_view(disparity, focal_px, baseline_m, min_valid_disp, max_range_m):
+    """
+    Build a true depth heatmap from disparity.
+    Near = high intensity after inversion, far = low intensity.
+    Invalid pixels are shown as black.
+    """
+    depth_m = np.zeros_like(disparity, dtype=np.float32)
+
+    valid = np.isfinite(disparity) & (disparity > min_valid_disp)
+    depth_m[valid] = (focal_px * baseline_m) / disparity[valid]
+
+    # Clamp to usable range for visualization
+    viz = np.zeros_like(depth_m, dtype=np.float32)
+    valid_depth = valid & (depth_m > 0.0) & (depth_m <= max_range_m)
+
+    if np.any(valid_depth):
+        # Map near->255, far->0
+        clipped = np.clip(depth_m[valid_depth], 0.0, max_range_m)
+        inv = 1.0 - (clipped / max_range_m)
+        viz[valid_depth] = inv
+
+    viz_u8 = (viz * 255).astype(np.uint8)
+    color = cv2.applyColorMap(viz_u8, cv2.COLORMAP_JET)
+    color[~valid_depth] = 0
+    return color
 
 
 def overlay_cell_distances(
@@ -314,6 +341,7 @@ def main():
     last_time = time.time()
     fps_filtered = 0.0
     show_display = SHOW_DISPLAY
+    show_heatmap = START_IN_HEATMAP_MODE
 
     try:
         while True:
@@ -363,7 +391,19 @@ def main():
                 cv2.imshow("Rectified Pair", rect_preview)
 
             if show_display:
-                disp_view = make_raw_disparity_view(disparity, min_disp, num_disp)
+                if show_heatmap:
+                    disp_view = make_depth_heatmap_view(
+                        disparity,
+                        focal_px=focal_px,
+                        baseline_m=baseline_m,
+                        min_valid_disp=MIN_VALID_DISP,
+                        max_range_m=MAX_RANGE_M,
+                    )
+                    mode_text = "heatmap"
+                else:
+                    disp_view = make_raw_disparity_view(disparity, min_disp, num_disp)
+                    mode_text = "disparity"
+
                 disp_view = overlay_cell_distances(
                     disp_view,
                     disparity,
@@ -387,10 +427,10 @@ def main():
                 )
                 cv2.putText(
                     disp_view,
-                    "space=toggle display | q=quit",
+                    f"mode={mode_text} | space=display on/off | any other key=toggle mode | q=quit",
                     (20, 50),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
+                    0.55,
                     (255, 255, 255),
                     2,
                     cv2.LINE_AA,
@@ -418,6 +458,8 @@ def main():
                 break
             elif key == ord(" "):
                 show_display = not show_display
+            elif key != 255:
+                show_heatmap = not show_heatmap
 
             seq += 1
 
