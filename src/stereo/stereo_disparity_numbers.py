@@ -9,6 +9,7 @@ Now the "disparity" picture started making sense, I want to improve code a bit.
  This way I will estimate the FPS in disparity only mode.
  Next, I want to overlay numbers on disparity screen, showing distances in centimeters to the closest object in a cell.
  Say, the screen is divided by 10x10 cells for that purpose.
+ Normally starts with the heatmap, but can be switched to raw colors by any other key but the space and "q" (as quit)
 
  See https://chatgpt.com/s/t_69b97c6ac4188191929289332c6f6c83
 """
@@ -59,10 +60,6 @@ def draw_grid(img, rows=10, cols=10, color=(255, 255, 255), thickness=1):
 
 
 def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
-    """
-    Z = f * B / d
-    Returns depth in centimeters, or None if disparity is invalid.
-    """
     if disparity_px <= 0:
         return None
     z_m = (focal_px * baseline_m) / disparity_px
@@ -70,7 +67,7 @@ def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
 
 
 def overlay_cell_distances(
-    disp_color,
+    img,
     disparity,
     focal_px,
     baseline_m,
@@ -79,11 +76,7 @@ def overlay_cell_distances(
     min_valid_disp=1.0,
     max_depth_cm=999,
 ):
-    """
-    For each cell, find the largest valid disparity (= closest object),
-    convert to distance, and overlay the distance in cm.
-    """
-    out = draw_grid(disp_color, rows=rows, cols=cols, color=(255, 255, 255), thickness=1)
+    out = draw_grid(img, rows=rows, cols=cols, color=(255, 255, 255), thickness=1)
     h, w = disparity.shape[:2]
 
     for r in range(rows):
@@ -100,8 +93,11 @@ def overlay_cell_distances(
             if not np.any(valid):
                 text = "--"
             else:
-                closest_disp = float(np.max(cell[valid]))   # largest disparity = closest
-                depth_cm = estimate_depth_cm_from_disparity(closest_disp, focal_px, baseline_m)
+                # Largest disparity = closest object
+                closest_disp = float(np.max(cell[valid]))
+                depth_cm = estimate_depth_cm_from_disparity(
+                    closest_disp, focal_px, baseline_m
+                )
 
                 if depth_cm is None or not np.isfinite(depth_cm):
                     text = "--"
@@ -112,18 +108,23 @@ def overlay_cell_distances(
             cx = x0 + (x1 - x0) // 2
             cy = y0 + (y1 - y0) // 2
 
-            # black outline
             cv2.putText(
                 out, text, (cx - 18, cy + 6),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 3, cv2.LINE_AA
             )
-            # white text
             cv2.putText(
                 out, text, (cx - 18, cy + 6),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA
             )
 
     return out
+
+
+def make_raw_disparity_view(disparity, min_disp, num_disp):
+    disp_vis = (disparity - min_disp) / num_disp
+    disp_vis = np.clip(disp_vis, 0, 1)
+    disp_vis = (disp_vis * 255).astype(np.uint8)
+    return cv2.applyColorMap(disp_vis, cv2.COLORMAP_JET)
 
 
 def main():
@@ -133,8 +134,6 @@ def main():
     mapLy = calib["mapLy"]
     mapRx = calib["mapRx"]
     mapRy = calib["mapRy"]
-
-    # Use projection matrix / calibration to estimate focal length and baseline
     PL = calib["PL"]
     T = calib["T"]
 
@@ -142,8 +141,7 @@ def main():
     height = int(calib["image_height"])
     fps = 30
 
-    # Stereo geometry
-    focal_px = float(PL[0, 0])         # rectified focal length in pixels
+    focal_px = float(PL[0, 0])
     baseline_m = float(np.linalg.norm(T))
 
     print(f"Using focal length: {focal_px:.2f} px")
@@ -153,7 +151,7 @@ def main():
     capR = open_camera(1, width, height, fps)
 
     min_disp = 0
-    num_disp = 16 * 6   # 96, multiple of 16
+    num_disp = 16 * 6
     block_size = 7
 
     stereo = cv2.StereoSGBM_create(
@@ -171,8 +169,8 @@ def main():
     )
 
     show_preview = True
+    show_heatmap = True   # starts in heatmap+numbers mode
 
-    # FPS measurement
     last_time = time.time()
     fps_filtered = 0.0
 
@@ -201,36 +199,35 @@ def main():
         else:
             msg = "No valid disparity pixels. Check rectification or swap left/right cameras."
 
-        # Disparity visualization
-        disp_vis = (disparity - min_disp) / num_disp
-        disp_vis = np.clip(disp_vis, 0, 1)
-        disp_vis = (disp_vis * 255).astype(np.uint8)
-        disp_color = cv2.applyColorMap(disp_vis, cv2.COLORMAP_JET)
+        raw_disp = make_raw_disparity_view(disparity, min_disp, num_disp)
 
-        # Overlay 10x10 closest-object distances in cm
-        disp_color = overlay_cell_distances(
-            disp_color,
-            disparity,
-            focal_px=focal_px,
-            baseline_m=baseline_m,
-            rows=10,
-            cols=10,
-            min_valid_disp=1.0,
-            max_depth_cm=999,
-        )
+        if show_heatmap:
+            disp_view = overlay_cell_distances(
+                raw_disp,
+                disparity,
+                focal_px=focal_px,
+                baseline_m=baseline_m,
+                rows=10,
+                cols=10,
+                min_valid_disp=1.0,
+                max_depth_cm=999,
+            )
+            view_mode = "heatmap"
+        else:
+            disp_view = raw_disp
+            view_mode = "raw"
 
-        # FPS update
         now = time.time()
         dt = now - last_time
         last_time = now
         fps_now = 1.0 / dt if dt > 0 else 0.0
         fps_filtered = 0.9 * fps_filtered + 0.1 * fps_now if fps_filtered > 0 else fps_now
 
-        mode_text = "preview: ON" if show_preview else "preview: OFF"
+        preview_text = "preview: ON" if show_preview else "preview: OFF"
 
         cv2.putText(
-            disp_color,
-            f"FPS {fps_filtered:.1f} | {mode_text} | space=toggle preview | q=quit",
+            disp_view,
+            f"FPS {fps_filtered:.1f} | {preview_text} | mode: {view_mode}",
             (20, 25),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.6,
@@ -239,17 +236,27 @@ def main():
             cv2.LINE_AA,
         )
         cv2.putText(
-            disp_color,
-            f"f={focal_px:.0f}px B={baseline_m*100:.1f}cm",
+            disp_view,
+            "space=toggle preview | any other key=toggle heatmap/raw | q=quit",
             (20, 50),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
+            0.55,
             (255, 255, 255),
             2,
             cv2.LINE_AA,
         )
         cv2.putText(
-            disp_color,
+            disp_view,
+            f"f={focal_px:.0f}px B={baseline_m*100:.1f}cm",
+            (20, 75),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+        cv2.putText(
+            disp_view,
             msg,
             (20, height - 20),
             cv2.FONT_HERSHEY_SIMPLEX,
@@ -281,13 +288,15 @@ def main():
             except cv2.error:
                 pass
 
-        cv2.imshow("Disparity", disp_color)
+        cv2.imshow("Disparity", disp_view)
 
         key = cv2.waitKey(1) & 0xFF
         if key in (27, ord("q")):
             break
         elif key == ord(" "):
             show_preview = not show_preview
+        elif key != 255:
+            show_heatmap = not show_heatmap
 
     capL.release()
     capR.release()
