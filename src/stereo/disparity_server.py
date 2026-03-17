@@ -4,10 +4,13 @@ import numpy as np
 import socket
 import struct
 import time
+import argparse
 
 """
 @brief
 UDP-based stereo perception server for Jetson Nano.
+
+./disparity_server.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10]
 
 This script captures synchronized frames from two CSI cameras, applies stereo
 rectification using precomputed calibration, computes a disparity map via
@@ -48,18 +51,10 @@ The cloud will be sparse but immediately useful.
 # =========================
 # Configuration
 # =========================
-UDP_IP = "192.168.1.100"   # dev machine (ROS2 node) IP
-UDP_PORT = 5005
-
-GRID_ROWS = 10
-GRID_COLS = 10
-
 MIN_VALID_DISP = 1.0
 MAX_RANGE_M = 5.0
 MIN_CONFIDENCE = 0.02   # valid fraction in cell
 
-SHOW_PREVIEW = False
-SHOW_DISPLAY = True          # display ON by default
 START_IN_HEATMAP_MODE = False  # False = disparity, True = depth heatmap
 
 HEADER_STRUCT = struct.Struct("<4sBBBBIQHH")
@@ -67,6 +62,54 @@ HEADER_MAGIC = b"SPC2"
 HEADER_VERSION = 1
 
 POINT_STRUCT = struct.Struct("<ffffHH")
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Stereo UDP disparity server")
+
+    parser.add_argument(
+        "--udp-ip",
+        type=str,
+        default="192.168.1.100",
+        help="Destination IP address for UDP packets",
+    )
+
+    parser.add_argument(
+        "--udp-port",
+        type=int,
+        default=5005,
+        help="Destination UDP port",
+    )
+
+    parser.add_argument(
+        "--show-display",
+        dest="show_display",
+        action="store_true",
+        default=True,
+        help="Enable disparity display (default: enabled)",
+    )
+
+    parser.add_argument(
+        "--no-display",
+        dest="show_display",
+        action="store_false",
+        help="Disable disparity display",
+    )
+
+    parser.add_argument(
+        "--show-preview",
+        action="store_true",
+        default=False,
+        help="Show rectified stereo preview (default: off)",
+    )
+
+    parser.add_argument(
+        "--grid-size",
+        type=int,
+        default=10,
+        help="Grid size NxN for sparse sampling (default: 10)",
+    )
+
+    return parser.parse_args()
 
 
 def gstreamer_pipeline(sensor_id=0, width=1280, height=720, fps=30, flip_method=0):
@@ -297,6 +340,21 @@ def pack_packet(seq, rows, cols, points):
 
 
 def main():
+
+    args = parse_args()
+
+    udp_ip = args.udp_ip
+    udp_port = args.udp_port
+    show_display = args.show_display
+    show_preview = args.show_preview
+
+    grid_rows = args.grid_size
+    grid_cols = args.grid_size
+
+    print(f"UDP target: {udp_ip}:{udp_port}")
+    print(f"Display enabled: {show_display}  Preview enabled: {show_preview}")
+    print(f"PointCloud2 grid size: {grid_rows}x{grid_cols}")
+
     calib = np.load("stereo_calibration.npz")
 
     mapLx = calib["mapLx"]
@@ -340,7 +398,6 @@ def main():
     seq = 0
     last_time = time.time()
     fps_filtered = 0.0
-    show_display = SHOW_DISPLAY
     show_heatmap = START_IN_HEATMAP_MODE
 
     try:
@@ -362,14 +419,14 @@ def main():
             points = extract_sparse_points(
                 disparity,
                 points_3d,
-                rows=GRID_ROWS,
-                cols=GRID_COLS,
+                rows=grid_rows,
+                cols=grid_cols,
                 min_valid_disp=MIN_VALID_DISP,
                 max_range_m=MAX_RANGE_M,
             )
 
-            packet = pack_packet(seq, GRID_ROWS, GRID_COLS, points)
-            sock.sendto(packet, (UDP_IP, UDP_PORT))
+            packet = pack_packet(seq, grid_rows, grid_cols, points)
+            sock.sendto(packet, (udp_ip, udp_port))
 
             now = time.time()
             dt = now - last_time
@@ -383,7 +440,7 @@ def main():
                 flush=True,
             )
 
-            if SHOW_PREVIEW:
+            if show_preview:
                 rect_preview = cv2.hconcat([
                     draw_horizontal_lines(left_rect, 40),
                     draw_horizontal_lines(right_rect, 40)
@@ -409,8 +466,8 @@ def main():
                     disparity,
                     focal_px=focal_px,
                     baseline_m=baseline_m,
-                    rows=GRID_ROWS,
-                    cols=GRID_COLS,
+                    rows=grid_rows,
+                    cols=grid_cols,
                     min_valid_disp=MIN_VALID_DISP,
                     max_depth_cm=int(MAX_RANGE_M * 100.0),
                 )
