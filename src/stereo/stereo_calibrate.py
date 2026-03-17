@@ -27,7 +27,7 @@ A set of 15 very diverse images is often better than 23 repetitive ones.
 
 # ====== EDIT THESE TO MATCH YOUR BOARD ======
 CHESSBOARD_SIZE = (8, 6)   # (corners_across, corners_down) = inner corners
-SQUARE_SIZE = 0.028        # meters
+SQUARE_SIZE = 0.0282101190334    # meters  =(28.2285714 + 28.1916666667) / 2 mm
 PAIR_DIR = "stereo_pairs"
 # ============================================
 

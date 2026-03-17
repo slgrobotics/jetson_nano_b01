@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+import cv2
+import os
+import time
+
+#
+# Stereo vision on Nano:
+# - https://chatgpt.com/s/t_69b88fead95c8191be1cacb3edff4ea2  - general advice
+# - https://chatgpt.com/s/t_69b890a7d5e08191b447848349d0178b  - minimal three-script starter pack
+#
+# Calibration board generator: https://markhedleyjones.com/projects/calibration-checkerboard-collection
+#                              https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-70mm-3x2.pdf
+#
+
+
+def gstreamer_pipeline(sensor_id=0, width=1280, height=720, fps=30, flip_method=0):
+    return (
+        f"nvarguscamerasrc sensor-id={sensor_id} ! "
+        f"video/x-raw(memory:NVMM), width=(int){width}, height=(int){height}, "
+        f"format=(string)NV12, framerate=(fraction){fps}/1 ! "
+        f"nvvidconv flip-method={flip_method} ! "
+        f"video/x-raw, width=(int){width}, height=(int){height}, format=(string)BGRx ! "
+        f"videoconvert ! "
+        f"video/x-raw, format=(string)BGR ! appsink drop=true sync=false"
+    )
+
+
+def open_camera(sensor_id, width, height, fps):
+    cap = cv2.VideoCapture(
+        gstreamer_pipeline(sensor_id=sensor_id, width=width, height=height, fps=fps),
+        cv2.CAP_GSTREAMER,
+    )
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open camera sensor-id={sensor_id}")
+    return cap
+
+
+def main():
+    width = 1280
+    height = 720
+    fps = 30
+
+    out_dir = "stereo_pairs"
+    left_dir = os.path.join(out_dir, "left")
+    right_dir = os.path.join(out_dir, "right")
+    os.makedirs(left_dir, exist_ok=True)
+    os.makedirs(right_dir, exist_ok=True)
+
+    capL = open_camera(0, width, height, fps)
+    capR = open_camera(1, width, height, fps)
+
+    print("Controls:")
+    print("  s = save current stereo pair")
+    print("  q or ESC = quit")
+
+    pair_idx = 0
+    last_save_time = 0.0
+
+    while True:
+        okL, left = capL.read()
+        okR, right = capR.read()
+
+        if not okL or not okR:
+            print("Warning: failed to read one or both frames")
+            continue
+
+        preview = cv2.hconcat([left, right])
+        cv2.putText(
+            preview,
+            f"pair_idx={pair_idx}",
+            (20, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.0,
+            (0, 255, 0),
+            2,
+            cv2.LINE_AA,
+        )
+
+        cv2.imshow("Stereo Preview", preview)
+        key = cv2.waitKey(1) & 0xFF
+
+        if key in (27, ord("q")):
+            break
+
+        elif key == ord("s"):
+            now = time.time()
+            if now - last_save_time < 0.3:
+                continue  # tiny debounce
+
+            left_path = os.path.join(left_dir, f"left_{pair_idx:04d}.png")
+            right_path = os.path.join(right_dir, f"right_{pair_idx:04d}.png")
+
+            cv2.imwrite(left_path, left)
+            cv2.imwrite(right_path, right)
+
+            print(f"Saved pair {pair_idx:04d}")
+            print(f"  {left_path}")
+            print(f"  {right_path}")
+
+            pair_idx += 1
+            last_save_time = now
+
+    capL.release()
+    capR.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
