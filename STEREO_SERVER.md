@@ -21,7 +21,7 @@ cd
 git clone https://github.com/slgrobotics/jetson_nano_b01.git
 ```
 
-## Camera pipeline tests (inside the container):
+## Camera pipeline tests:
 
 **test without X11 display, no output:**
 ```
@@ -60,15 +60,15 @@ nvvidconv ! 'video/x-raw(memory:NVMM),width=640,height=480' ! nvvidconv ! \
 
 ### Stereo Camera UDP Streamer
 
-**Note:** the servers described here are intended to work with [ROS2 Inference package](https://github.com/slgrobotics/ros2_jetson_nano_inference)
+**Note:** the streamer described here is intended to work with [ROS2 Inference package](https://github.com/slgrobotics/ros2_jetson_nano_inference) - 
+see [this launch file](https://github.com/slgrobotics/ros2_jetson_nano_inference/blob/main/launch/ros2_disparity_client.launch.py).
 
 **Tip:** Setting up a lean headless appliance:
 - use a 32 GB "high endurance" SD card and follow OS installation [process](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano)
 - do not change swapping from default (except, maybe, *swappiness*)
-- switch to non-desktop operation early, use SSH to configure everything
-- build the Docker file as described above
-- run the container as described above, test camera pipelines
-- in the container shell build the *yolo11n* engine (run `python3 model_export.py`, the engine file will be preserved in shared folder)
+- test camera pipelines
+- make sure you calibrate cameras properly first
+- after setting up and calibrting cameras switch to non-desktop operation, use SSH
 - follow steps below
 
 <img width="460" alt="jetson_cam" src="https://github.com/user-attachments/assets/d8231e9a-3182-45b0-bf4a-05a64b7aed67" />
@@ -86,7 +86,7 @@ Therefore a 15W/3A "*USB charger*" power supply is not a good option, use a good
 When working with the ROS2 [disparity client](https://github.com/slgrobotics/ros2_jetson_nano_inference/blob/main/launch/ros2_disparity_client.launch.py),
 Jetson Nano should behave as a maintenance-free intelligent camera rather than as a general-purpose computer.
 
-Here is how to run the server in headless mode (see this AI [guide](https://chatgpt.com/s/t_69b2da2183b881918293ff0a24922169)).
+Here is how to run the server in headless mode.
 
 Disable the GUI to save RAM and speed up boot:
 ```
@@ -98,18 +98,17 @@ Re-enable the GUI if needed:
 sudo systemctl set-default graphical.target
 ```
 
-
-### Disparity streamer as a service
-
 To avoid crashes caused by the slow startup of *nvargus-daemon*, the streamr is started by *systemd* after a readiness check (alternatively, after a fixed delay).
 
 The repository contains two required files. Make sure they are present:
-- a startup script: `~/jetson_nano_b01/src/start-stereo.sh`
-- a service file: `~/jetson_nano_b01/src/stereo.service`
+- a startup script: `~/jetson_nano_b01/src/stereo/start-stereo.sh`
+- a service file: `~/jetson_nano_b01/src/stereo/stereo.service`
+
+You need to edit the startup script - change the ROS2 node host name (or IP address) and other arguments there.
 
 Deploy the service file:
 ```
-sudo cp ~/jetson_nano_b01/src/stereo.service /etc/systemd/system/.
+sudo cp ~/jetson_nano_b01/src/stereo/stereo.service /etc/systemd/system/.
 ```
 
 Reload systemd and enable the service:
@@ -128,12 +127,9 @@ After reboot, the service should start the streamer automatically, and the ROS2 
 
 The Nano’s *Power* button initiates a graceful shutdown.
 
-
-### Useful monitoring commands
-
-
 ### Configuring WiFi
 
+See [this section](https://github.com/slgrobotics/jetson_nano_b01?tab=readme-ov-file#configuring-wifi).
 
 -------------------------
 
