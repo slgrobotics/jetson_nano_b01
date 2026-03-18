@@ -6,8 +6,10 @@ If you are looking for **ROS 2 compatible Inference Server** - read [this guide]
 
 The machine and OS (and other experiments) are described [here](https://github.com/slgrobotics/articubot_one/wiki/Ollama-on-Jetson-Nano).
 
-**Note:** I use Waveshare Binocular Camera [Module](https://www.newegg.com/p/3C6-00U7-00PK8?item=9SIC4CTKR07923),
-Dual IMX219 8 Megapixels. It supports stereo vision (depth vision). Other CSI-connected cameras compatible with Nano B01 or webcams might work.
+**Note:**
+- I use Waveshare Binocular Camera [Module](https://www.newegg.com/p/3C6-00U7-00PK8?item=9SIC4CTKR07923),
+Dual IMX219 8 Megapixels. It supports stereo vision (depth vision).
+- The software described here should work on RPi5 (once access to two cameras is provided) - I plan to test it some day.
 
 ### Purpose and Credits
 
@@ -56,6 +58,29 @@ nvvidconv ! 'video/x-raw(memory:NVMM),width=640,height=480' ! nvvidconv ! \
 'video/x-raw,format=BGRx' ! videoconvert ! fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
 
 (1280×720 → resize in NVMM to 640x480 → BGR pipeline  ~58 FPS average  0 drops  Stable)
+```
+
+### Important: Stereo Camera calibration
+
+You need to enable Desktop mode on your nano (`sudo init 5`)
+
+There are multiple Python scripts in `~/jetson_nano_b01/src/stereo` directory:
+```
+jetson@jetson:~/jetson_nano_b01/src/stereo$ ls -l
+Checkerboard-A4-30mm-8x6.pdf - printable board from https://markhedleyjones.com/projects/calibration-checkerboard-collection
+check_stereo_pairs.py*
+disparity_server.py*         - the streamer to send UDP packets to ROS2 node
+find_chessboard_corners.py*
+inspect_stereo_npz.py*
+mono_undistortion_test.py*
+stereo_calibrate.py*         - calibration processor, uses "stereo_pairs/" dataset
+stereo_calibration.npz       - processed calibration file (calibration result)
+stereo_capture_keybd.py*     - calibration dataset gatherer (one pair per "s" key press)
+stereo_capture.py*           - calibration dataset gatherer (50 pairs, 2 sec interval)
+stereo_disparity_numbers.py*
+stereo_disparity.py*
+stereo_pairs/                - calibration dataset is accumulated here
+test_one_camera.py*
 ```
 
 ### Stereo Camera UDP Streamer
