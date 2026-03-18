@@ -232,7 +232,8 @@ def overlay_cell_distances(
             if not np.any(valid):
                 text = "--"
             else:
-                closest_disp = float(np.max(cell[valid]))
+                closest_disp = float(np.percentile(cell[valid], 95))
+
                 depth_cm = estimate_depth_cm_from_disparity(
                     closest_disp, focal_px, baseline_m
                 )
@@ -355,14 +356,21 @@ def main():
     show_display = args.show_display
     show_preview = args.show_preview
 
+    if args.grid_size <= 8:
+        raise ValueError("--grid-size must be > 8")
+
     grid_rows = args.grid_size
     grid_cols = args.grid_size
 
-    print(f"UDP target: {udp_ip}:{udp_port}")
-    print(f"Display enabled: {show_display}  Preview enabled: {show_preview}")
-    print(f"PointCloud2 grid size: {grid_rows}x{grid_cols}")
+    print(f"UDP target        : {udp_ip}:{udp_port}")
+    print(f"Display enabled   : {show_display}")
+    print(f"Preview enabled   : {show_preview}")
+    print(f"PointCloud2 grid  : {grid_rows}x{grid_cols}")
 
-    calib = np.load("stereo_calibration.npz")
+    try:
+        calib = np.load("stereo_calibration.npz")
+    except FileNotFoundError:
+        raise RuntimeError("Calibration file 'stereo_calibration.npz' not found")
 
     mapLx = calib["mapLx"]
     mapLy = calib["mapLy"]
