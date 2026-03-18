@@ -72,6 +72,10 @@ def draw_grid(img, rows=10, cols=10, color=(255, 255, 255), thickness=1):
 
 
 def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
+    """
+    Z = f * B / d
+    Returns depth in centimeters, or None if disparity is invalid.
+    """
     if disparity_px <= 0:
         return None
     z_m = (focal_px * baseline_m) / disparity_px
@@ -88,6 +92,10 @@ def overlay_cell_distances(
     min_valid_disp=1.0,
     max_depth_cm=999,
 ):
+    """
+    For each cell, find the largest valid disparity (= closest object),
+    convert to distance, and overlay the distance in cm.
+    """
     out = draw_grid(img, rows=rows, cols=cols, color=(255, 255, 255), thickness=1)
     h, w = disparity.shape[:2]
 
@@ -120,10 +128,12 @@ def overlay_cell_distances(
             cx = x0 + (x1 - x0) // 2
             cy = y0 + (y1 - y0) // 2
 
+            # black outline
             cv2.putText(
                 out, text, (cx - 18, cy + 6),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 3, cv2.LINE_AA
             )
+            # white text
             cv2.putText(
                 out, text, (cx - 18, cy + 6),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA
@@ -146,6 +156,8 @@ def main():
     mapLy = calib["mapLy"]
     mapRx = calib["mapRx"]
     mapRy = calib["mapRy"]
+
+    # Use projection matrix / calibration to estimate focal length and baseline
     PL = calib["PL"]
     T = calib["T"]
 
@@ -153,7 +165,8 @@ def main():
     height = int(calib["image_height"])
     fps = 30
 
-    focal_px = float(PL[0, 0])
+    # Stereo geometry
+    focal_px = float(PL[0, 0])         # rectified focal length in pixels
     baseline_m = float(np.linalg.norm(T))
 
     print(f"Using focal length: {focal_px:.2f} px")
@@ -183,6 +196,7 @@ def main():
     show_preview = True
     show_heatmap = True   # starts in heatmap+numbers mode
 
+    # FPS measurement
     last_time = time.time()
     fps_filtered = 0.0
 
@@ -212,9 +226,11 @@ def main():
         else:
             msg = "No valid disparity pixels. Check rectification or swap left/right cameras."
 
+        # Disparity visualization
         raw_disp = make_raw_disparity_view(disparity, min_disp, num_disp)
 
         if show_heatmap:
+            # Overlay 10x10 closest-object distances in cm
             disp_view = overlay_cell_distances(
                 raw_disp,
                 disparity,
@@ -230,6 +246,7 @@ def main():
             disp_view = raw_disp
             view_mode = "raw"
 
+        # FPS update
         now = time.time()
         dt = now - last_time
         last_time = now
