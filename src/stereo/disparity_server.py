@@ -53,7 +53,6 @@ The cloud will be sparse but immediately useful.
 # =========================
 MIN_VALID_DISP = 1.0
 MAX_RANGE_M = 5.0
-MIN_CONFIDENCE = 0.02   # valid fraction in cell
 
 START_IN_HEATMAP_MODE = False  # False = disparity, True = depth heatmap
 
@@ -107,6 +106,13 @@ def parse_args():
         type=int,
         default=10,
         help="Grid size NxN for sparse sampling (default: 10)",
+    )
+
+    parser.add_argument(
+        "--min-confidence",
+        type=float,
+        default=0.02,
+        help="Minimum valid pixel fraction per grid cell (default: 0.02)",
     )
 
     return parser.parse_args()
@@ -273,7 +279,15 @@ def cam_to_ros(x_cam, y_cam, z_cam):
     return x_ros, y_ros, z_ros
 
 
-def extract_sparse_points(disparity, points_3d, rows, cols, min_valid_disp, max_range_m):
+def extract_sparse_points(
+    disparity,
+    points_3d,
+    rows,
+    cols,
+    min_valid_disp,
+    max_range_m,
+    min_confidence,
+):
     """
     One representative point per cell.
 
@@ -283,6 +297,7 @@ def extract_sparse_points(disparity, points_3d, rows, cols, min_valid_disp, max_
     - choose actual pixel nearest that target disparity
     - emit XYZ + confidence + grid row/col
     """
+    
     h, w = disparity.shape[:2]
     points = []
 
@@ -298,7 +313,7 @@ def extract_sparse_points(disparity, points_3d, rows, cols, min_valid_disp, max_
             valid_mask = np.isfinite(cell_disp) & (cell_disp > min_valid_disp)
 
             valid_fraction = float(np.count_nonzero(valid_mask)) / float(cell_disp.size)
-            if valid_fraction < MIN_CONFIDENCE:
+            if valid_fraction < min_confidence:
                 continue
 
             valid_values = cell_disp[valid_mask]
@@ -351,6 +366,11 @@ def main():
 
     args = parse_args()
 
+    min_confidence = args.min_confidence
+
+    if not (0.0 <= min_confidence <= 1.0):
+        raise ValueError("--min-confidence must be in [0.0, 1.0]")
+
     udp_ip = args.udp_ip
     udp_port = args.udp_port
     show_display = args.show_display
@@ -366,6 +386,14 @@ def main():
     print(f"Display enabled   : {show_display}")
     print(f"Preview enabled   : {show_preview}")
     print(f"PointCloud2 grid  : {grid_rows}x{grid_cols}")
+    print(f"Min confidence    : {min_confidence:.3f}")
+
+    """
+    min_confidence:
+        0.05–0.1 → cleaner but may drop distant objects
+        <0.01 → fills more grid cells, but noisy / unstable
+        sweet spot ≈ 0.02–0.05
+    """
 
     try:
         calib = np.load("stereo_calibration.npz")
@@ -438,6 +466,7 @@ def main():
                 cols=grid_cols,
                 min_valid_disp=MIN_VALID_DISP,
                 max_range_m=MAX_RANGE_M,
+                min_confidence=min_confidence,
             )
 
             packet = pack_packet(seq, grid_rows, grid_cols, points)
