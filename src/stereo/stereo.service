@@ -1,0 +1,15 @@
+[Unit]
+Description=Stereo camera streamer after Argus is ready
+Requires=nvargus-daemon.service
+After=nvargus-daemon.service
+
+[Service]
+Type=simple
+User=jetson
+WorkingDirectory=/home/jetson/jetson_nano_b01/src/stereo
+ExecStart=/home/jetson/jetson_nano_b01/src/stereo/start-stereo.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
