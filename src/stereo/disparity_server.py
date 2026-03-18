@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
-import cv2
-import numpy as np
-import socket
-import struct
-import time
-import argparse
 
 """
 @brief
 UDP-based stereo perception server for Jetson Nano.
 
-./disparity_server.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10]
+./disparity_server.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10 --min-confidence 0.02]
 
 This script captures synchronized frames from two CSI cameras, applies stereo
 rectification using precomputed calibration, computes a disparity map via
@@ -36,17 +30,21 @@ Intended use:
 - Obstacle detection and navigation experiments
 - Rapid iteration without full ROS stack on embedded device
 
-See https://chatgpt.com/s/t_69b986e63f508191a5de89865356377f
-
-Receiver expectations:
- - The ROS 2 node later should:
- - recvfrom()
- - unpack header
- - unpack point_count point records
- - publish PointCloud2
-
-The cloud will be sparse but immediately useful.
+Receiver (ROS2 node) expectations:
+- recvfrom()
+- unpack header
+- unpack point_count point records
+- publish PointCloud2
 """
+
+import argparse
+import socket
+import struct
+import time
+
+import cv2
+import numpy as np
+
 
 # =========================
 # Configuration
@@ -62,6 +60,7 @@ HEADER_VERSION = 1
 
 POINT_STRUCT = struct.Struct("<ffffHH")
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Stereo UDP disparity server")
 
@@ -71,14 +70,12 @@ def parse_args():
         default="192.168.1.100",
         help="Destination IP address for UDP packets",
     )
-
     parser.add_argument(
         "--udp-port",
         type=int,
         default=5005,
         help="Destination UDP port",
     )
-
     parser.add_argument(
         "--show-display",
         dest="show_display",
@@ -86,28 +83,24 @@ def parse_args():
         default=True,
         help="Enable disparity display (default: enabled)",
     )
-
     parser.add_argument(
         "--no-display",
         dest="show_display",
         action="store_false",
         help="Disable disparity display",
     )
-
     parser.add_argument(
         "--show-preview",
         action="store_true",
         default=False,
         help="Show rectified stereo preview (default: off)",
     )
-
     parser.add_argument(
         "--grid-size",
         type=int,
         default=10,
         help="Grid size NxN for sparse sampling (default: 10)",
     )
-
     parser.add_argument(
         "--min-confidence",
         type=float,
@@ -170,11 +163,28 @@ def draw_overlay_grid(img, rows=10, cols=10, color=(255, 255, 255), thickness=1)
     return out
 
 
-def make_raw_disparity_view(disparity, min_disp, num_disp):
+def make_valid_disparity_mask(disparity, min_valid_disp, invalid_left_cols, invalid_right_cols=0):
+    valid = np.isfinite(disparity) & (disparity > min_valid_disp)
+
+    if invalid_left_cols > 0:
+        valid[:, :invalid_left_cols] = False
+
+    if invalid_right_cols > 0:
+        valid[:, -invalid_right_cols:] = False
+
+    return valid
+
+
+def make_raw_disparity_view(disparity, min_disp, num_disp, valid_mask=None):
     disp_vis = (disparity - min_disp) / float(num_disp)
     disp_vis = np.clip(disp_vis, 0, 1)
     disp_vis = (disp_vis * 255).astype(np.uint8)
-    return cv2.applyColorMap(disp_vis, cv2.COLORMAP_JET)
+    color = cv2.applyColorMap(disp_vis, cv2.COLORMAP_JET)
+
+    if valid_mask is not None:
+        color[~valid_mask] = 0
+
+    return color
 
 
 def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
@@ -184,23 +194,19 @@ def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
     return z_m * 100.0
 
 
-def make_depth_heatmap_view(disparity, focal_px, baseline_m, min_valid_disp, max_range_m):
+def make_depth_heatmap_view(disparity, focal_px, baseline_m, valid_mask, max_range_m):
     """
     Build a true depth heatmap from disparity.
     Near = high intensity after inversion, far = low intensity.
     Invalid pixels are shown as black.
     """
     depth_m = np.zeros_like(disparity, dtype=np.float32)
+    depth_m[valid_mask] = (focal_px * baseline_m) / disparity[valid_mask]
 
-    valid = np.isfinite(disparity) & (disparity > min_valid_disp)
-    depth_m[valid] = (focal_px * baseline_m) / disparity[valid]
-
-    # Clamp to usable range for visualization
     viz = np.zeros_like(depth_m, dtype=np.float32)
-    valid_depth = valid & (depth_m > 0.0) & (depth_m <= max_range_m)
+    valid_depth = valid_mask & (depth_m > 0.0) & (depth_m <= max_range_m)
 
     if np.any(valid_depth):
-        # Map near->255, far->0
         clipped = np.clip(depth_m[valid_depth], 0.0, max_range_m)
         inv = 1.0 - (clipped / max_range_m)
         viz[valid_depth] = inv
@@ -214,11 +220,11 @@ def make_depth_heatmap_view(disparity, focal_px, baseline_m, min_valid_disp, max
 def overlay_cell_distances(
     img,
     disparity,
+    valid_mask,
     focal_px,
     baseline_m,
     rows=10,
     cols=10,
-    min_valid_disp=1.0,
     max_depth_cm=999,
 ):
     out = draw_overlay_grid(img, rows=rows, cols=cols, color=(255, 255, 255), thickness=1)
@@ -233,13 +239,12 @@ def overlay_cell_distances(
             x1 = int((c + 1) * w / cols)
 
             cell = disparity[y0:y1, x0:x1]
-            valid = cell > min_valid_disp
+            cell_valid = valid_mask[y0:y1, x0:x1]
 
-            if not np.any(valid):
+            if not np.any(cell_valid):
                 text = "--"
             else:
-                closest_disp = float(np.percentile(cell[valid], 95))
-
+                closest_disp = float(np.percentile(cell[cell_valid], 95))
                 depth_cm = estimate_depth_cm_from_disparity(
                     closest_disp, focal_px, baseline_m
                 )
@@ -282,9 +287,9 @@ def cam_to_ros(x_cam, y_cam, z_cam):
 def extract_sparse_points(
     disparity,
     points_3d,
+    valid_mask,
     rows,
     cols,
-    min_valid_disp,
     max_range_m,
     min_confidence,
 ):
@@ -310,16 +315,16 @@ def extract_sparse_points(
             x1 = int((c + 1) * w / cols)
 
             cell_disp = disparity[y0:y1, x0:x1]
-            valid_mask = np.isfinite(cell_disp) & (cell_disp > min_valid_disp)
+            cell_valid = valid_mask[y0:y1, x0:x1]
 
-            valid_fraction = float(np.count_nonzero(valid_mask)) / float(cell_disp.size)
+            valid_fraction = float(np.count_nonzero(cell_valid)) / float(cell_disp.size)
             if valid_fraction < min_confidence:
                 continue
 
-            valid_values = cell_disp[valid_mask]
+            valid_values = cell_disp[cell_valid]
             target_disp = float(np.percentile(valid_values, 95))
 
-            ys, xs = np.where(valid_mask)
+            ys, xs = np.where(cell_valid)
             disp_candidates = cell_disp[ys, xs]
             best_idx = int(np.argmin(np.abs(disp_candidates - target_disp)))
 
@@ -371,14 +376,13 @@ def main():
     if not (0.0 <= min_confidence <= 1.0):
         raise ValueError("--min-confidence must be in [0.0, 1.0]")
 
+    if args.grid_size <= 8:
+        raise ValueError("--grid-size must be > 8")
+
     udp_ip = args.udp_ip
     udp_port = args.udp_port
     show_display = args.show_display
     show_preview = args.show_preview
-
-    if args.grid_size <= 8:
-        raise ValueError("--grid-size must be > 8")
-
     grid_rows = args.grid_size
     grid_cols = args.grid_size
 
@@ -457,14 +461,25 @@ def main():
             right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
 
             disparity = stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
+
+            invalid_left_cols = num_disp
+            invalid_right_cols = block_size // 2
+
+            valid_mask = make_valid_disparity_mask(
+                disparity,
+                min_valid_disp=MIN_VALID_DISP,
+                invalid_left_cols=invalid_left_cols,
+                invalid_right_cols=invalid_right_cols,
+            )
+
             points_3d = cv2.reprojectImageTo3D(disparity, Q, handleMissingValues=False)
 
             points = extract_sparse_points(
                 disparity,
                 points_3d,
+                valid_mask=valid_mask,
                 rows=grid_rows,
                 cols=grid_cols,
-                min_valid_disp=MIN_VALID_DISP,
                 max_range_m=MAX_RANGE_M,
                 min_confidence=min_confidence,
             )
@@ -490,6 +505,11 @@ def main():
                     draw_preview_grid(right_rect, 40)
                 ])
                 cv2.imshow("Rectified Pair", rect_preview)
+            else:
+                try:
+                    cv2.destroyWindow("Rectified Pair")
+                except cv2.error:
+                    pass
 
             if show_display:
                 if show_heatmap:
@@ -497,22 +517,27 @@ def main():
                         disparity,
                         focal_px=focal_px,
                         baseline_m=baseline_m,
-                        min_valid_disp=MIN_VALID_DISP,
+                        valid_mask=valid_mask,
                         max_range_m=MAX_RANGE_M,
                     )
                     mode_text = "heatmap"
                 else:
-                    disp_view = make_raw_disparity_view(disparity, min_disp, num_disp)
+                    disp_view = make_raw_disparity_view(
+                        disparity,
+                        min_disp,
+                        num_disp,
+                        valid_mask=valid_mask,
+                    )
                     mode_text = "disparity"
 
                 disp_view = overlay_cell_distances(
                     disp_view,
                     disparity,
+                    valid_mask=valid_mask,
                     focal_px=focal_px,
                     baseline_m=baseline_m,
                     rows=grid_rows,
                     cols=grid_cols,
-                    min_valid_disp=MIN_VALID_DISP,
                     max_depth_cm=int(MAX_RANGE_M * 100.0),
                 )
 
