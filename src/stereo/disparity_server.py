@@ -134,15 +134,22 @@ def open_camera(sensor_id, width, height, fps):
     return cap
 
 
-def draw_horizontal_lines(img, step=40):
+def draw_preview_grid(img, step=40):
     out = img.copy()
     h, w = out.shape[:2]
+
+    # horizontal lines
     for y in range(0, h, step):
         cv2.line(out, (0, y), (w - 1, y), (0, 255, 0), 1)
+
+    # vertical center line
+    cx = w // 2
+    cv2.line(out, (cx, 0), (cx, h - 1), (0, 255, 0), 1)
+
     return out
 
 
-def draw_grid(img, rows=10, cols=10, color=(255, 255, 255), thickness=1):
+def draw_overlay_grid(img, rows=10, cols=10, color=(255, 255, 255), thickness=1):
     out = img.copy()
     h, w = out.shape[:2]
 
@@ -208,7 +215,7 @@ def overlay_cell_distances(
     min_valid_disp=1.0,
     max_depth_cm=999,
 ):
-    out = draw_grid(img, rows=rows, cols=cols, color=(255, 255, 255), thickness=1)
+    out = draw_overlay_grid(img, rows=rows, cols=cols, color=(255, 255, 255), thickness=1)
     h, w = disparity.shape[:2]
 
     for r in range(rows):
@@ -442,8 +449,8 @@ def main():
 
             if show_preview:
                 rect_preview = cv2.hconcat([
-                    draw_horizontal_lines(left_rect, 40),
-                    draw_horizontal_lines(right_rect, 40)
+                    draw_preview_grid(left_rect, 40),
+                    draw_preview_grid(right_rect, 40)
                 ])
                 cv2.imshow("Rectified Pair", rect_preview)
 
