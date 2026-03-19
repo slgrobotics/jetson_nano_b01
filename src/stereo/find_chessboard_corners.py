@@ -1,20 +1,44 @@
 #!/usr/bin/env python3
+
+"""
+@brief
+Stereo dataset checkerboard validation tool.
+
+This script scans captured stereo image datasets (left/right folders) and
+verifies successful detection of a calibration checkerboard pattern in each image.
+
+For every image:
+- Attempts chessboard corner detection using OpenCV
+- Refines corners and overlays visualization when found
+- Displays annotated preview with detection status
+- Reports results to console
+
+The tool helps identify problematic frames (missed detections, motion blur,
+poor coverage) before running stereo calibration.
+
+Key features:
+- Batch processing of left/right stereo image sets
+- Visual feedback with drawn corners and status labels
+- Configurable chessboard size and timing via shared config
+- Summary statistics of detection success/failure
+
+Intended use:
+- Pre-filtering stereo datasets for calibration
+- Diagnosing capture quality issues
+- Ensuring sufficient and valid board detections
+"""
+
 import cv2
 import glob
 import os
 import time
 
-# ====== easy-to-edit globals ======
-CHESSBOARD_SIZE = (8, 6)   # inner corners: (across, down)
-PAIR_DIR = "stereo_pairs"
-PAUSE_SECONDS = 2.0
-IMAGE_EXTENSIONS = ("*.png", "*.jpg", "*.jpeg", "*.bmp")
-# =================================
+from config import Camera, Stereo, Calib
 
 
 def find_images(folder):
     paths = []
-    for ext in IMAGE_EXTENSIONS:
+    for ext in Calib.IMAGE_EXTENSIONS:
         paths.extend(glob.glob(os.path.join(folder, ext)))
     return sorted(paths)
 
@@ -77,7 +101,7 @@ def process_folder(label, folder):
             total += 1
             continue
 
-        found, vis = detect_and_draw(img, CHESSBOARD_SIZE)
+        found, vis = detect_and_draw(img, Stereo.CHESSBOARD_SIZE)
         total += 1
         if not found:
             misses += 1
@@ -86,11 +110,11 @@ def process_folder(label, folder):
         status = "FOUND" if found else "NOT FOUND"
         print(f"{label}: {basename}: {status}")
 
-        text = f"{label}: {basename} | {status} | pattern={CHESSBOARD_SIZE}"
+        text = f"{label}: {basename} | {status} | pattern={Stereo.CHESSBOARD_SIZE}"
         vis = annotate(vis, text, found)
 
         cv2.imshow(f"{label} chessboard check", vis)
-        key = cv2.waitKey(int(PAUSE_SECONDS * 1000)) & 0xFF
+        key = cv2.waitKey(int(Calib.INTERVAL_SEC * 1000)) & 0xFF
         if key in (27, ord("q")):
             print("Stopped by user.")
             break
@@ -100,14 +124,14 @@ def process_folder(label, folder):
 
 
 def main():
-    left_dir = os.path.join(PAIR_DIR, "left")
-    right_dir = os.path.join(PAIR_DIR, "right")
+    left_dir = os.path.join(Calib.PAIR_DIR, "left")
+    right_dir = os.path.join(Calib.PAIR_DIR, "right")
 
     left_total, left_misses = process_folder("LEFT", left_dir)
     right_total, right_misses = process_folder("RIGHT", right_dir)
 
     print("\n=== summary ===")
-    print(f"Pattern checked: {CHESSBOARD_SIZE}")
+    print(f"Pattern checked: {Stereo.CHESSBOARD_SIZE}")
     print(f"LEFT : total={left_total}, misses={left_misses}, found={left_total - left_misses}")
     print(f"RIGHT: total={right_total}, misses={right_misses}, found={right_total - right_misses}")
     print(f"ALL  : total={left_total + right_total}, misses={left_misses + right_misses}, found={(left_total - left_misses) + (right_total - right_misses)}")

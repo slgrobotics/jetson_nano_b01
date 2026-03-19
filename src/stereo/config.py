@@ -22,4 +22,5 @@ class Calib:     # parameters used during calibration
     INTERVAL_SEC = 2.0
     FLUSH_FRAMES = 4
     FLASH_SEC = 0.5
+    IMAGE_EXTENSIONS = ("*.png", "*.jpg", "*.jpeg", "*.bmp")
  
