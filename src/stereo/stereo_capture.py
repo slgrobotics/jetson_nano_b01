@@ -44,7 +44,7 @@ from config import Camera, Stereo, Calib
 #
 
 
-def gstreamer_pipeline(sensor_id=0, width, height, fps, flip_method=0):
+def gstreamer_pipeline(sensor_id, width, height, fps, flip_method):
     return (
         f"nvarguscamerasrc sensor-id={sensor_id} ! "
         f"video/x-raw(memory:NVMM), width=(int){width}, height=(int){height}, "
@@ -58,7 +58,7 @@ def gstreamer_pipeline(sensor_id=0, width, height, fps, flip_method=0):
 
 def open_camera(sensor_id, width, height, fps):
     cap = cv2.VideoCapture(
-        gstreamer_pipeline(sensor_id=sensor_id, width=width, height=height, fps=fps),
+        gstreamer_pipeline(sensor_id=sensor_id, width=width, height=height, fps=fps, flip_method=0),
         cv2.CAP_GSTREAMER,
     )
     if not cap.isOpened():
