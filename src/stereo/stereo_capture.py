@@ -31,6 +31,8 @@ import cv2
 import os
 import time
 
+from config import Camera, Stereo, Calib
+
 #
 # Stereo vision on Nano:
 # - https://chatgpt.com/s/t_69b88fead95c8191be1cacb3edff4ea2  - general advice
@@ -41,15 +43,8 @@ import time
 #  - https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-30mm-8x6.pdf
 #
 
-# ===== settings =====
-NUM_PAIRS = 50
-INTERVAL_SEC = 2.0
-FLUSH_FRAMES = 4
-FLASH_SEC = 0.5
-# ====================
 
-
-def gstreamer_pipeline(sensor_id=0, width=1280, height=720, fps=30, flip_method=0):
+def gstreamer_pipeline(sensor_id=0, width, height, fps, flip_method=0):
     return (
         f"nvarguscamerasrc sensor-id={sensor_id} ! "
         f"video/x-raw(memory:NVMM), width=(int){width}, height=(int){height}, "
@@ -97,22 +92,16 @@ def draw_center_flash(img, color=(0, 0, 255), thickness=3):
 
 
 def main():
-    width = 1280
-    height = 720
-    #width = 640
-    #height = 360    
-    fps = 30
-
-    out_dir = "stereo_pairs"
+    out_dir = Calib.PAIR_DIR
     left_dir = os.path.join(out_dir, "left")
     right_dir = os.path.join(out_dir, "right")
     os.makedirs(left_dir, exist_ok=True)
     os.makedirs(right_dir, exist_ok=True)
 
-    capL = open_camera(0, width, height, fps)
-    capR = open_camera(1, width, height, fps)
+    capL = open_camera(Camera.LEFT, Camera.WIDTH, Camera.HEIGHT, Camera.FPS)
+    capR = open_camera(Camera.RIGHT, Camera.WIDTH, Camera.HEIGHT, Camera.FPS)
 
-    print(f"Starting auto capture: {NUM_PAIRS} pairs, interval {INTERVAL_SEC}s")
+    print(f"Starting auto capture: {Calib.NUM_PAIRS} pairs, interval {Calib.INTERVAL_SEC}s")
     print("Hold board still before each capture...\n")
 
     # Warm up cameras
@@ -122,7 +111,7 @@ def main():
 
     pair_idx = 0
 
-    while pair_idx < NUM_PAIRS:
+    while pair_idx < Calib.NUM_PAIRS:
         t_start = time.time()
 
         # Preview loop during waiting interval
@@ -134,7 +123,7 @@ def main():
                 preview = cv2.hconcat([left, right])
                 cv2.putText(
                     preview,
-                    f"Next capture in {max(0, INTERVAL_SEC - (time.time() - t_start)):.1f}s | idx={pair_idx}",
+                    f"Next capture in {max(0, Calib.INTERVAL_SEC - (time.time() - t_start)):.1f}s | idx={pair_idx}",
                     (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.8,
@@ -151,14 +140,14 @@ def main():
                 cv2.destroyAllWindows()
                 return
 
-            if time.time() - t_start >= INTERVAL_SEC:
+            if time.time() - t_start >= Calib.INTERVAL_SEC:
                 break
 
         print(f"[{pair_idx:03d}] Flashing warning rectangle... stand still")
 
         # Flash warning rectangle before sampling
         flash_start = time.time()
-        while time.time() - flash_start < FLASH_SEC:
+        while time.time() - flash_start < Calib.FLASH_SEC:
             okL, left = capL.read()
             okR, right = capR.read()
 
@@ -189,8 +178,8 @@ def main():
         print(f"[{pair_idx:03d}] Capturing now")
 
         # Flush + fresh capture
-        okL, left = flush_and_read(capL, FLUSH_FRAMES)
-        okR, right = flush_and_read(capR, FLUSH_FRAMES)
+        okL, left = flush_and_read(capL, Calib.FLUSH_FRAMES)
+        okR, right = flush_and_read(capR, Calib.FLUSH_FRAMES)
 
         if not okL or not okR:
             print("Capture failed, skipping")
