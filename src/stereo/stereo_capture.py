@@ -166,7 +166,7 @@ def main():
 
                 cv2.putText(
                     preview,
-                    f"Capturing soon... HOLD STILL | idx={pair_idx}",
+                    f"Capturing {pair_idx} of {Calib.NUM_PAIRS}... HOLD STILL",
                     (20, 100),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     2.0,
