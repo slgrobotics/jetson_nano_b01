@@ -120,7 +120,11 @@ def main():
             okR, right = capR.read()
 
             if okL and okR:
-                preview = cv2.hconcat([left, right])
+                # flip horizontally for preview, easier to see yourself in the mirror
+                left_mirror = cv2.flip(left, 1)
+                right_mirror = cv2.flip(right, 1)
+
+                preview = cv2.hconcat([left_mirror, right_mirror])
                 cv2.putText(
                     preview,
                     f"Next capture in {max(0, Calib.INTERVAL_SEC - (time.time() - t_start)):.1f}s | idx={pair_idx}",
@@ -152,8 +156,12 @@ def main():
             okR, right = capR.read()
 
             if okL and okR:
-                left_flash = draw_flash_border(left)
-                right_flash = draw_flash_border(right)
+                # flip horizontally for preview, easier to see yourself in the mirror
+                left_mirror = cv2.flip(left, 1)
+                right_mirror = cv2.flip(right, 1)
+
+                left_flash = draw_flash_border(left_mirror)
+                right_flash = draw_flash_border(right_mirror)
                 preview = cv2.hconcat([left_flash, right_flash])
 
                 cv2.putText(
