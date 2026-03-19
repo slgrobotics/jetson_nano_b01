@@ -1,4 +1,32 @@
 #!/usr/bin/env python3
+
+"""
+@brief
+Stereo image pair capture tool for calibration on Jetson Nano.
+
+This script captures synchronized image pairs from two CSI cameras at fixed
+time intervals and saves them to disk for stereo calibration.
+
+During operation, a live preview is displayed. Before each capture, a short
+visual cue (red center rectangle) is shown to prompt the user to remain still,
+improving capture consistency and calibration accuracy.
+
+Key features:
+- Dual-camera synchronized capture using GStreamer (nvargus)
+- Automatic timed acquisition of N stereo pairs
+- Pre-capture stabilization cue (visual flash overlay)
+- Frame flushing to reduce motion artifacts
+- Organized output into left/right image folders
+
+Intended use:
+- Collecting high-quality stereo datasets for OpenCV calibration
+- Ensuring varied board poses while minimizing motion blur
+- Simple, repeatable capture workflow on embedded platforms
+
+Move the checkerboard through many positions and angles, filling the frame, tilting and rotating it,
+ and covering different depths—holding it steady during each capture.
+"""
+
 import cv2
 import os
 import time
@@ -8,15 +36,16 @@ import time
 # - https://chatgpt.com/s/t_69b88fead95c8191be1cacb3edff4ea2  - general advice
 # - https://chatgpt.com/s/t_69b890a7d5e08191b447848349d0178b  - minimal three-script starter pack
 #
-# Calibration board generator: https://markhedleyjones.com/projects/calibration-checkerboard-collection
-#                              https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-70mm-3x2.pdf
+# Calibration board generator:
+#  - https://markhedleyjones.com/projects/calibration-checkerboard-collection
+#  - https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-30mm-8x6.pdf
 #
-
 
 # ===== settings =====
 NUM_PAIRS = 50
 INTERVAL_SEC = 2.0
 FLUSH_FRAMES = 4
+FLASH_SEC = 0.5
 # ====================
 
 
@@ -48,9 +77,30 @@ def flush_and_read(cap, n=4):
     return cap.read()
 
 
+def draw_center_flash(img, color=(0, 0, 255), thickness=3):
+    """
+    Draw a centered rectangle sized to 1/5 of the image width and height.
+    """
+    out = img.copy()
+    h, w = out.shape[:2]
+
+    rw = w // 5
+    rh = h // 5
+
+    x0 = (w - rw) // 2
+    y0 = (h - rh) // 2
+    x1 = x0 + rw
+    y1 = y0 + rh
+
+    cv2.rectangle(out, (x0, y0), (x1, y1), color, thickness)
+    return out
+
+
 def main():
     width = 1280
     height = 720
+    #width = 640
+    #height = 360    
     fps = 30
 
     out_dir = "stereo_pairs"
@@ -104,7 +154,39 @@ def main():
             if time.time() - t_start >= INTERVAL_SEC:
                 break
 
-        print(f"[{pair_idx:03d}] Capturing... hold still")
+        print(f"[{pair_idx:03d}] Flashing warning rectangle... stand still")
+
+        # Flash warning rectangle before sampling
+        flash_start = time.time()
+        while time.time() - flash_start < FLASH_SEC:
+            okL, left = capL.read()
+            okR, right = capR.read()
+
+            if okL and okR:
+                left_flash = draw_center_flash(left)
+                right_flash = draw_center_flash(right)
+                preview = cv2.hconcat([left_flash, right_flash])
+
+                cv2.putText(
+                    preview,
+                    f"Capturing soon... HOLD STILL | idx={pair_idx}",
+                    (20, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (0, 255, 255),
+                    2,
+                    cv2.LINE_AA,
+                )
+                cv2.imshow("Stereo Preview", preview)
+
+            if cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                print("Aborted by user")
+                capL.release()
+                capR.release()
+                cv2.destroyAllWindows()
+                return
+
+        print(f"[{pair_idx:03d}] Capturing now")
 
         # Flush + fresh capture
         okL, left = flush_and_read(capL, FLUSH_FRAMES)
