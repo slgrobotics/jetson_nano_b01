@@ -1,20 +1,43 @@
 #!/usr/bin/env python3
+
+"""
+@brief
+Interactive stereo dataset validator and cleanup tool.
+
+This script loads stereo image pairs (left/right), detects calibration
+checkerboard corners in each image, and provides visual feedback with
+annotated previews.
+
+Users can review each pair and:
+- Keep valid pairs
+- Manually delete bad pairs
+- Automatically remove pairs where detection fails
+
+The tool tracks detection statistics and summarizes dataset quality,
+helping ensure only reliable image pairs are used for stereo calibration.
+
+Key features:
+- Side-by-side visualization with detection overlays
+- Per-image pass/fail annotation
+- Interactive and automatic dataset pruning
+- Summary of detection success and failures
+
+Intended use:
+- Cleaning stereo datasets before calibration
+- Removing frames with missed or poor detections
+- Improving calibration accuracy and robustness
+"""
+
 import cv2
 import glob
 import os
 
-# ===== easy-to-edit globals =====
-CHESSBOARD_SIZE = (8, 6)      # inner corners (across, down)
-PAIR_DIR = "stereo_pairs"
-PAUSE_SECONDS = 2
-IMAGE_EXT = "*.png"
-DELETE_BAD_AUTOMATICALLY = True   # set True to auto-delete pairs where either side fails
-# ================================
+from config import Camera, Stereo, Calib
 
 
 def detect(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    found, corners = cv2.findChessboardCorners(gray, CHESSBOARD_SIZE, None)
+    found, corners = cv2.findChessboardCorners(gray, Stereo.CHESSBOARD_SIZE, None)
 
     vis = img.copy()
 
@@ -26,7 +49,7 @@ def detect(img):
             (-1, -1),
             (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001),
         )
-        cv2.drawChessboardCorners(vis, CHESSBOARD_SIZE, corners, found)
+        cv2.drawChessboardCorners(vis, Stereo.CHESSBOARD_SIZE, corners, found)
 
     return found, vis
 
@@ -50,8 +73,8 @@ def annotate(img, label, ok):
 
 
 def load_pairs():
-    left_files = sorted(glob.glob(os.path.join(PAIR_DIR, "left", IMAGE_EXT)))
-    right_files = sorted(glob.glob(os.path.join(PAIR_DIR, "right", IMAGE_EXT)))
+    left_files = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "left", Calib.IMAGE_EXT)))
+    right_files = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "right", Calib.IMAGE_EXT)))
 
     if len(left_files) != len(right_files):
         print("Warning: left/right image count mismatch")
@@ -88,7 +111,7 @@ def main():
     deleted_count = 0
 
     print(f"Scanning {len(pairs)} stereo pairs")
-    print(f"Pattern: {CHESSBOARD_SIZE}")
+    print(f"Pattern: {Stereo.CHESSBOARD_SIZE}")
     print("Controls:")
     print("  d = delete current pair")
     print("  q or ESC = quit")
@@ -153,14 +176,14 @@ def main():
             f"R={'OK' if foundR else 'FAIL'}"
         )
 
-        if DELETE_BAD_AUTOMATICALLY and not pair_ok:
+        if Calib.DELETE_BAD_AUTOMATICALLY and not pair_ok:
             print("Auto-deleting bad pair")
             if delete_pair(left_path, right_path):
                 deleted_count += 1
             i += 1
             continue
 
-        key = cv2.waitKey(int(PAUSE_SECONDS * 1000)) & 0xFF
+        key = cv2.waitKey(int(Calib.INTERVAL_SEC * 1000)) & 0xFF
 
         if key in (27, ord("q")):
             print("Stopped by user")

@@ -22,5 +22,8 @@ class Calib:     # parameters used during calibration
     INTERVAL_SEC = 2.0
     FLUSH_FRAMES = 4
     FLASH_SEC = 0.5
+    IMAGE_EXT = "*.png"
     IMAGE_EXTENSIONS = ("*.png", "*.jpg", "*.jpeg", "*.bmp")
+    DELETE_BAD_AUTOMATICALLY = True   # set True to auto-delete pairs where either side fails
+
  
