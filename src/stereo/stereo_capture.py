@@ -72,15 +72,15 @@ def flush_and_read(cap, n=4):
     return cap.read()
 
 
-def draw_center_flash(img, color=(0, 0, 255), thickness=3):
+def draw_flash_border(img, color=(0, 0, 255), thickness=4):
     """
     Draw a centered rectangle sized to 1/5 of the image width and height.
     """
     out = img.copy()
     h, w = out.shape[:2]
 
-    rw = w // 5
-    rh = h // 5
+    rw = w - thickness
+    rh = h - thickness
 
     x0 = (w - rw) // 2
     y0 = (h - rh) // 2
@@ -152,16 +152,16 @@ def main():
             okR, right = capR.read()
 
             if okL and okR:
-                left_flash = draw_center_flash(left)
-                right_flash = draw_center_flash(right)
+                left_flash = draw_flash_border(left)
+                right_flash = draw_flash_border(right)
                 preview = cv2.hconcat([left_flash, right_flash])
 
                 cv2.putText(
                     preview,
                     f"Capturing soon... HOLD STILL | idx={pair_idx}",
-                    (20, 40),
+                    (20, 100),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
+                    2.0,
                     (0, 255, 255),
                     2,
                     cv2.LINE_AA,
