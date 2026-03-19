@@ -10,12 +10,15 @@ time intervals and saves them to disk for stereo calibration.
 During operation, a live preview is displayed. Before each capture, a short
 visual cue (red center rectangle) is shown to prompt the user to remain still,
 improving capture consistency and calibration accuracy.
+After each capture, image pair is validated for successful chessboard corner
+detection, and only valid pairs are included in the dataset.
 
 Key features:
 - Dual-camera synchronized capture using GStreamer (nvargus)
 - Automatic timed acquisition of N stereo pairs
 - Pre-capture stabilization cue (visual flash overlay)
 - Frame flushing to reduce motion artifacts
+- Visual indication of chessboard corners found or not
 - Organized output into left/right image folders
 
 Intended use:
@@ -89,6 +92,27 @@ def draw_flash_border(img, color=(0, 0, 255), thickness=4):
 
     cv2.rectangle(out, (x0, y0), (x1, y1), color, thickness)
     return out
+
+def detect_and_draw(img, chessboard_size):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    found, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
+
+    vis = img.copy()
+    if found:
+        corners = cv2.cornerSubPix(
+            gray,
+            corners,
+            (11, 11),
+            (-1, -1),
+            (
+                cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
+                30,
+                0.001,
+            ),
+        )
+        cv2.drawChessboardCorners(vis, chessboard_size, corners, found)
+
+    return found, vis
 
 
 def main():
@@ -166,12 +190,12 @@ def main():
 
                 cv2.putText(
                     preview,
-                    f"Capturing {pair_idx} of {Calib.NUM_PAIRS}... HOLD STILL",
+                    f"Capturing {pair_idx+1} of {Calib.NUM_PAIRS}... HOLD STILL",
                     (20, 100),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     2.0,
                     (0, 255, 255),
-                    2,
+                    3,
                     cv2.LINE_AA,
                 )
                 cv2.imshow("Stereo Preview", preview)
@@ -192,6 +216,49 @@ def main():
         if not okL or not okR:
             print("Capture failed, skipping")
             continue
+
+        foundL, visL = detect_and_draw(left, Stereo.CHESSBOARD_SIZE)
+        foundR, visR = detect_and_draw(right, Stereo.CHESSBOARD_SIZE)
+
+        preview = cv2.hconcat([cv2.flip(visL, 1), cv2.flip(visR, 1)])
+
+        if not (foundL and foundR):
+            print(f"Corners not found (L={foundL}, R={foundR}), skipping")
+            print(f"Corners not found (L={foundL}, R={foundR}), skipping")
+
+            # Create red flash overlay
+            red_overlay = preview.copy()
+            red_overlay[:] = (0, 0, 255)  # BGR: full red
+
+            # Blend original + red (keeps faint structure visible)
+            flash = cv2.addWeighted(preview, 0.3, red_overlay, 0.7, 0)
+
+            cv2.putText(
+                flash,
+                "NO CORNERS",
+                (40, 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                2.0,
+                (255, 255, 255),
+                3,
+                cv2.LINE_AA,
+            )
+
+            cv2.imshow("Stereo Preview", flash)
+
+            # Non-blocking short flash
+            for _ in range(120):
+                if cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                    break
+
+            continue
+
+        cv2.imshow("Stereo Preview", preview)
+
+        # Non-blocking pause (~1s total, but UI stays alive)
+        for _ in range(120):
+            if cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                break
 
         left_path = os.path.join(left_dir, f"left_{pair_idx:04d}.png")
         right_path = os.path.join(right_dir, f"right_{pair_idx:04d}.png")
