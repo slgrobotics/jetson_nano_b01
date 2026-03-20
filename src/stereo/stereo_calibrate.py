@@ -136,7 +136,7 @@ def main():
         raise RuntimeError(f"Not enough good pairs for calibration: {good_pairs} - need at least 30")
 
     print(f"IP: Using {good_pairs} good stereo pairs")
-    print("...thinking...")
+    print("...thinking...", flush=True)
 
     # Calibrate each camera individually
     retL, K1, D1, rvecsL, tvecsL = cv2.calibrateCamera(
@@ -147,7 +147,7 @@ def main():
     )
 
     print(f"FYI: Mono reprojection errors:  left: {retL}  right: {retR}")
-    print("...thinking...")
+    print("...thinking...", flush=True)
 
     # Stereo calibration
     stereo_criteria = (
@@ -173,7 +173,7 @@ def main():
 
     print(f"FYI: Stereo reprojection error: {retStereo}")
     print(f"FYI: Baseline T (meters if Stereo.SQUARE_SIZE is meters): {T.ravel()}")
-    print("...thinking...")
+    print("...thinking...", flush=True)
 
     # Rectification
     RL, RR, PL, PR, Q, roiL, roiR = cv2.stereoRectify(
