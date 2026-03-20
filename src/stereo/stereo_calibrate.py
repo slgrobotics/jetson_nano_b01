@@ -62,6 +62,9 @@ A set of 15 very diverse images is often better than 23 repetitive ones.
 """
 
 def main():
+
+    print(f"Looking for image pairs in {Calib.PAIR_DIR}")
+
     left_images = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "left", Calib.IMAGE_EXT)))
     right_images = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "right", Calib.IMAGE_EXT)))
 
@@ -133,6 +136,7 @@ def main():
         raise RuntimeError(f"Not enough good pairs for calibration: {good_pairs}")
 
     print(f"Using {good_pairs} good stereo pairs")
+    print("...thinking...")
 
     # Calibrate each camera individually
     retL, K1, D1, rvecsL, tvecsL = cv2.calibrateCamera(
@@ -144,6 +148,7 @@ def main():
 
     print(f"Mono reprojection error left : {retL}")
     print(f"Mono reprojection error right: {retR}")
+    print("...thinking...")
 
     # Stereo calibration
     stereo_criteria = (
@@ -168,8 +173,8 @@ def main():
     )
 
     print(f"Stereo reprojection error: {retStereo}")
-    print("Baseline T (meters if Stereo.SQUARE_SIZE is meters):")
-    print(T.ravel())
+    print(f"Baseline T (meters if Stereo.SQUARE_SIZE is meters): {T.ravel()}")
+    print("...thinking...")
 
     # Rectification
     RL, RR, PL, PR, Q, roiL, roiR = cv2.stereoRectify(
@@ -184,7 +189,7 @@ def main():
     )
 
     np.savez(
-        out_file,
+        Calib.CALIBRATION_FILE,
         K1=K1, D1=D1,
         K2=K2, D2=D2,
         R=R, T=T,
@@ -198,7 +203,7 @@ def main():
         image_height=image_size[1],
     )
 
-    print(f"Saved calibration to {Calib.CALIBRATION_FILE}")
+    print(f"OK: Saved calibration to {Calib.CALIBRATION_FILE}")
 
 
 if __name__ == "__main__":
