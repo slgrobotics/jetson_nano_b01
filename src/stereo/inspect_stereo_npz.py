@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """
-@brief
 Stereo calibration inspection and sanity-check tool.
 
 This script loads a saved stereo calibration (.npz) file and performs a series

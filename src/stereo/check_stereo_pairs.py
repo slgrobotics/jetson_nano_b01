@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """
-@brief
 Interactive stereo dataset validator and cleanup tool.
 
 This script loads stereo image pairs (left/right), detects calibration

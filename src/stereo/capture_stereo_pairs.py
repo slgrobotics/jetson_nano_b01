@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """
-@brief
 Stereo image pair capture tool for calibration on Jetson Nano.
 
 This script captures synchronized image pairs from two CSI cameras at fixed

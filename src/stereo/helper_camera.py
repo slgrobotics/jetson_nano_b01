@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """
-@brief
 GStreamer-based camera driver for Jetson Nano CSI cameras.
 
 This module provides a lightweight wrapper around OpenCV VideoCapture using

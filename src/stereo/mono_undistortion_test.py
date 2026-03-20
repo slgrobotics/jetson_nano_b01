@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """
-@brief
 Monocular undistortion sanity check for stereo cameras.
 
 This script loads intrinsic calibration parameters for both cameras and

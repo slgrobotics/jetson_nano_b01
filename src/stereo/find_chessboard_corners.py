@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """
-@brief
 Stereo dataset checkerboard validation tool.
 
 This script scans captured stereo image datasets (left/right folders) and

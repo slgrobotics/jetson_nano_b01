@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """
-@brief
 Minimal GStreamer camera open test for Jetson Nano.
 
 This script attempts to initialize a CSI camera using the nvargus GStreamer

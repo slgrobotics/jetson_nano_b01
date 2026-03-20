@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """
-@brief
 Stereo camera calibration and rectification pipeline.
 
 This script processes a dataset of stereo image pairs to compute intrinsic

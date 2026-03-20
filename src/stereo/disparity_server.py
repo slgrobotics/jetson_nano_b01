@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 """
-@brief
 UDP-based stereo perception server for Jetson Nano.
 
 ./disparity_server.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10 --min-confidence 0.02]

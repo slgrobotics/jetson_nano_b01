@@ -96,7 +96,7 @@ class TCPInferenceServer:
 
     def handle_client(self, sock: socket.socket, addr) -> None:
         """
-        @brief Handles a single client connection, processing incoming frames and sending back inference results.
+        Handles a single client connection, processing incoming frames and sending back inference results.
         This method runs in a separate thread for each client.
         It reads frames either from the local camera (if grabber is set) or from the client socket,
           submits them to the inference worker, and sends back the results.
