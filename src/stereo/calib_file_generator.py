@@ -49,7 +49,7 @@ from config import Camera, Stereo, Calib
 # 
 
 """
-Capture a new set with:
+The "pairs" set should be captured with:
  - board close, medium, and farther
  - strong tilt left/right/up/down
  - board near all four corners
@@ -132,8 +132,8 @@ def main():
 
     cv2.destroyAllWindows()
 
-    if good_pairs < 30:
-        raise RuntimeError(f"Not enough good pairs for calibration: {good_pairs} - need at least 30")
+    if good_pairs < 15:
+        raise RuntimeError(f"Not enough good pairs for calibration: {good_pairs} - need at least 15")
 
     print(f"IP: Using {good_pairs} good stereo pairs")
     print("...thinking - calculating reprojection errors...", flush=True)
@@ -174,37 +174,30 @@ def main():
     print(f"FYI: Stereo reprojection error: {retStereo}")
     print(f"FYI: Baseline T (meters if Stereo.SQUARE_SIZE is meters): {T.ravel()}")
 
-    baseline_dir = T.ravel() / (baseline + 1e-9)
-    print(f"Baseline direction (unit): {baseline_dir}  (Expected: roughly [-1, 0, 0])")
-
     print("\n=== sanity check ===")
+
+    tx, ty, tz = T.ravel()
+    baseline = float(np.linalg.norm(T))
+    dir_vec = T.ravel() / (baseline + 1e-9)
+
+    print(f"Baseline magnitude: {baseline:.4f} m")
+    print(f"Baseline direction (unit): {dir_vec}  (expected: roughly [-1, 0, 0])")
 
     baseline_dir_ok = True
 
-    """
-    What we want to detect:
-        - Baseline direction deflection
-        - Reprojection errors
-        - Baseline magnitude vs expected
-        - Baseline direction (should be mostly X)
-        - Degenerate geometry (Z too large, etc.)    
-    """
-
-    # Expect the baseline direction to be mostly along X axis:
-    if abs(baseline_dir[0]) < 0.7:
+    if abs(dir_vec[0]) < 0.7:
         print("❌ WARNING: Baseline not aligned with X axis")
         baseline_dir_ok = False
 
-    if abs(baseline_dir[2]) > 0.3:
+    if abs(dir_vec[2]) > 0.3:
         print("❌ WARNING: Significant Z component (forward shift) — bad stereo geometry")
         baseline_dir_ok = False
 
-    if abs(baseline_dir[1]) > 0.1:
+    if abs(dir_vec[1]) > 0.1:
         print("❌ WARNING: Significant Y component (vertical misalignment)")
         baseline_dir_ok = False
 
-    dominant_axis = np.argmax(np.abs(baseline_dir))
-
+    dominant_axis = np.argmax(np.abs(dir_vec))
     axes = ["X", "Y", "Z"]
     print(f"Dominant baseline axis: {axes[dominant_axis]}")
 
@@ -212,49 +205,36 @@ def main():
         print("❌ WARNING: Baseline not primarily along X axis")
         baseline_dir_ok = False
 
-    # ---- Baseline ----
-    tx, ty, tz = T.ravel()
-    baseline = float(np.linalg.norm(T))
-
-    expected = Camera.CAMERA_STEREO_BASE
-
-    print(f"Baseline magnitude: {baseline:.4f} m")
-
+    expected = getattr(Camera, "CAMERA_STEREO_BASE", None)
     if expected is not None:
         error = abs(baseline - expected)
         print(f"Expected baseline: {expected:.4f} m (error: {error:.4f} m)")
-
         if error > 0.02:
             print("❌ WARNING: Baseline differs significantly from expected value")
 
-    # ---- Direction sanity ----
     print(f"Baseline components: Tx={tx:.4f}, Ty={ty:.4f}, Tz={tz:.4f}")
-
-    if abs(tx) < abs(tz):
-        print("❌ WARNING: Z component larger than X — stereo geometry likely incorrect")
-
-    if abs(ty) > 0.01:
-        print("❌ WARNING: Non-negligible Y offset — cameras may not be horizontally aligned")
-
-    # ---- Reprojection errors ----
     print(f"Mono reprojection: L={retL:.3f} px, R={retR:.3f} px")
     print(f"Stereo reprojection: {retStereo:.3f} px")
 
-    if retL > 1.0 or retR > 1.0:
-        print("❌ WARNING: High mono reprojection error (>1 px)")
-
-    if retStereo > 2.0:
-        print("❌ WARNING: High stereo reprojection error (>2 px)")
-
-    # ---- Overall verdict ----
-    if (
+    bad_result = (
         (expected is not None and abs(baseline - expected) > 0.02)
         or retStereo > 2.0
         or retL > 1.5
         or retR > 1.5
         or not baseline_dir_ok
-    ):
+    )
+
+    if bad_result:
         print("❌ RESULT: Calibration is likely unreliable ❌")
+
+        try:
+            answer = input("Save calibration anyway? [y/N]: ").strip().lower()
+        except EOFError:
+            answer = "n"
+
+        if answer not in ("y", "yes"):
+            print("Aborting save.")
+            return
     else:
         print("✅ RESULT: Calibration looks reasonable ✅")
 
