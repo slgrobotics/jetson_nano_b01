@@ -63,7 +63,7 @@ A set of 15 very diverse images is often better than 23 repetitive ones.
 
 def main():
 
-    print(f"Looking for image pairs in {Calib.PAIR_DIR}")
+    print(f"IP: Looking for image pairs in '{Calib.PAIR_DIR}'")
 
     left_images = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "left", Calib.IMAGE_EXT)))
     right_images = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "right", Calib.IMAGE_EXT)))
@@ -85,7 +85,7 @@ def main():
 
     image_size = None
 
-    print(f"Found {len(left_images)} candidate stereo pairs")
+    print(f"OK: Found {len(left_images)} candidate stereo pairs")
 
     criteria_subpix = (
         cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
@@ -100,7 +100,7 @@ def main():
         imgR = cv2.imread(right_path)
 
         if imgL is None or imgR is None:
-            print(f"Skipping unreadable pair:\n  {left_path}\n  {right_path}")
+            print(f"FYI: Skipping unreadable pair:\n  {left_path}\n  {right_path}")
             continue
 
         grayL = cv2.cvtColor(imgL, cv2.COLOR_BGR2GRAY)
@@ -125,17 +125,17 @@ def main():
             cv2.drawChessboardCorners(visL, Stereo.CHESSBOARD_SIZE, cornersL, retL)
             cv2.drawChessboardCorners(visR, Stereo.CHESSBOARD_SIZE, cornersR, retR)
             preview = cv2.hconcat([visL, visR])
-            cv2.imshow("Accepted Pair", preview)
+            cv2.imshow("FYI: Accepted Pair", preview)
             cv2.waitKey(150)
         else:
-            print(f"Rejected pair:\n  {left_path}\n  {right_path}")
+            print(f"FYI: Rejected pair:\n  {left_path}\n  {right_path}")
 
     cv2.destroyAllWindows()
 
-    if good_pairs < 10:
-        raise RuntimeError(f"Not enough good pairs for calibration: {good_pairs}")
+    if good_pairs < 30:
+        raise RuntimeError(f"Not enough good pairs for calibration: {good_pairs} - need at least 30")
 
-    print(f"Using {good_pairs} good stereo pairs")
+    print(f"IP: Using {good_pairs} good stereo pairs")
     print("...thinking...")
 
     # Calibrate each camera individually
@@ -146,8 +146,7 @@ def main():
         objpoints, imgpointsR, image_size, None, None
     )
 
-    print(f"Mono reprojection error left : {retL}")
-    print(f"Mono reprojection error right: {retR}")
+    print(f"FYI: Mono reprojection errors:  left: {retL}  right: {retR}")
     print("...thinking...")
 
     # Stereo calibration
@@ -172,8 +171,8 @@ def main():
         flags=flags,
     )
 
-    print(f"Stereo reprojection error: {retStereo}")
-    print(f"Baseline T (meters if Stereo.SQUARE_SIZE is meters): {T.ravel()}")
+    print(f"FYI: Stereo reprojection error: {retStereo}")
+    print(f"FYI: Baseline T (meters if Stereo.SQUARE_SIZE is meters): {T.ravel()}")
     print("...thinking...")
 
     # Rectification
