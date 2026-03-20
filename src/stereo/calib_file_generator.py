@@ -37,7 +37,7 @@ import glob
 import numpy as np
 import os
 
-from config import Stereo, Calib
+from config import Camera, Stereo, Calib
 
 #
 # Stereo vision on Nano:
@@ -136,7 +136,7 @@ def main():
         raise RuntimeError(f"Not enough good pairs for calibration: {good_pairs} - need at least 30")
 
     print(f"IP: Using {good_pairs} good stereo pairs")
-    print("...thinking...", flush=True)
+    print("...thinking - calculating reprojection errors...", flush=True)
 
     # Calibrate each camera individually
     retL, K1, D1, rvecsL, tvecsL = cv2.calibrateCamera(
@@ -173,7 +173,64 @@ def main():
 
     print(f"FYI: Stereo reprojection error: {retStereo}")
     print(f"FYI: Baseline T (meters if Stereo.SQUARE_SIZE is meters): {T.ravel()}")
-    print("...thinking...", flush=True)
+
+    print("\n=== sanity check ===")
+
+    """
+    What we want to detect:
+        - Reprojection errors
+        - Baseline magnitude vs expected
+        - Baseline direction (should be mostly X)
+        - Degenerate geometry (Z too large, etc.)    
+    """
+
+    # ---- Baseline ----
+    tx, ty, tz = T.ravel()
+    baseline = float(np.linalg.norm(T))
+
+    expected = Camera.CAMERA_STEREO_BASE
+
+    print(f"Baseline magnitude: {baseline:.4f} m")
+
+    if expected is not None:
+        error = abs(baseline - expected)
+        print(f"Expected baseline: {expected:.4f} m (error: {error:.4f} m)")
+
+        if error > 0.02:
+            print("WARNING: Baseline differs significantly from expected value")
+
+    # ---- Direction sanity ----
+    print(f"Baseline components: Tx={tx:.4f}, Ty={ty:.4f}, Tz={tz:.4f}")
+
+    if abs(tx) < abs(tz):
+        print("WARNING: Z component larger than X — stereo geometry likely incorrect")
+
+    if abs(ty) > 0.01:
+        print("WARNING: Non-negligible Y offset — cameras may not be horizontally aligned")
+
+    # ---- Reprojection errors ----
+    print(f"Mono reprojection: L={retL:.3f} px, R={retR:.3f} px")
+    print(f"Stereo reprojection: {retStereo:.3f} px")
+
+    if retL > 1.0 or retR > 1.0:
+        print("WARNING: High mono reprojection error (>1 px)")
+
+    if retStereo > 2.0:
+        print("WARNING: High stereo reprojection error (>2 px)")
+
+    # ---- Overall verdict ----
+    if (
+        (expected is not None and abs(baseline - expected) > 0.02)
+        or retStereo > 2.0
+        or retL > 1.5
+        or retR > 1.5
+    ):
+        print("RESULT: Calibration is likely unreliable ❌")
+    else:
+        print("RESULT: Calibration looks reasonable ✅")
+
+
+    print("...preparing calibration file...", flush=True)
 
     # Rectification
     RL, RR, PL, PR, Q, roiL, roiR = cv2.stereoRectify(

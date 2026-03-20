@@ -13,6 +13,7 @@ class Camera:    # parameters related to camera
     FPS = 30
     LEFT = 0
     RIGHT = 1
+    CAMERA_STEREO_BASE = 0.060  # meters, Waveshare stereo camera for Jetson Nano
 
 class Stereo:    # parameters related to stereo algorithms
     """
