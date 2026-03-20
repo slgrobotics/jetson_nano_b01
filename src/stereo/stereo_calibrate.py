@@ -74,7 +74,7 @@ def main():
     # 3D points in chessboard coordinate system
     objp = np.zeros((Stereo.CHESSBOARD_SIZE[0] * Stereo.CHESSBOARD_SIZE[1], 3), np.float32)
     objp[:, :2] = np.mgrid[0:Stereo.CHESSBOARD_SIZE[0], 0:Stereo.CHESSBOARD_SIZE[1]].T.reshape(-1, 2)
-    objp *= SQUARE_SIZE
+    objp *= Stereo.SQUARE_SIZE
 
     objpoints = []
     imgpointsL = []
@@ -168,7 +168,7 @@ def main():
     )
 
     print(f"Stereo reprojection error: {retStereo}")
-    print("Baseline T (meters if SQUARE_SIZE is meters):")
+    print("Baseline T (meters if Stereo.SQUARE_SIZE is meters):")
     print(T.ravel())
 
     # Rectification
