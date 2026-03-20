@@ -86,6 +86,7 @@ def main():
     image_size = None
 
     print(f"OK: Found {len(left_images)} candidate stereo pairs")
+    print("...analyzing and displaying pairs...", flush=True)
 
     criteria_subpix = (
         cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
