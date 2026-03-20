@@ -1,11 +1,38 @@
 #!/usr/bin/env python3
+
+"""
+@brief
+Stereo calibration inspection and sanity-check tool.
+
+This script loads a saved stereo calibration (.npz) file and performs a series
+of diagnostics to verify its correctness and usability.
+
+It reports statistics for all calibration matrices (intrinsics, distortion,
+extrinsics, rectification, projection, and remap grids), checks numerical
+validity, and evaluates whether remap coordinates fall within image bounds.
+
+Additionally, it applies the rectification maps to a sample stereo image pair
+and displays the result with horizontal guide lines to visually confirm proper
+alignment.
+
+Key features:
+- Detailed statistics for calibration matrices and maps
+- Validation of finite values and expected ranges
+- Baseline and distortion parameter inspection
+- Offline rectification test with visual alignment cues
+
+Intended use:
+- Debugging and validating stereo calibration outputs
+- Detecting corrupted or inconsistent calibration data
+- Verifying rectification quality before disparity computation
+"""
+
 import numpy as np
 import cv2
 import glob
 import os
 
-NPZ = "stereo_calibration.npz"
-PAIR_DIR = "stereo_pairs"
+from config import Calib
 
 
 def stats(name, a):
@@ -20,28 +47,32 @@ def stats(name, a):
 
 
 def main():
-    data = np.load(NPZ)
+
+    try:
+        calib = np.load(Calib.CALIBRATION_FILE)
+    except FileNotFoundError:
+        raise RuntimeError(f"Calibration file '{Calib.CALIBRATION_FILE}' not found")
 
     print("=== keys ===")
-    print(sorted(data.files))
+    print(sorted(calib.files))
     print()
 
-    K1 = data["K1"]
-    D1 = data["D1"]
-    K2 = data["K2"]
-    D2 = data["D2"]
-    R = data["R"]
-    T = data["T"]
-    RL = data["RL"]
-    RR = data["RR"]
-    PL = data["PL"]
-    PR = data["PR"]
-    mapLx = data["mapLx"]
-    mapLy = data["mapLy"]
-    mapRx = data["mapRx"]
-    mapRy = data["mapRy"]
-    w = int(data["image_width"])
-    h = int(data["image_height"])
+    K1 = calib["K1"]
+    D1 = calib["D1"]
+    K2 = calib["K2"]
+    D2 = calib["D2"]
+    R = calib["R"]
+    T = calib["T"]
+    RL = calib["RL"]
+    RR = calib["RR"]
+    PL = calib["PL"]
+    PR = calib["PR"]
+    mapLx = calib["mapLx"]
+    mapLy = calib["mapLy"]
+    mapRx = calib["mapRx"]
+    mapRy = calib["mapRy"]
+    w = int(calib["image_width"])
+    h = int(calib["image_height"])
 
     print(f"image size from npz: width={w} height={h}\n")
 
@@ -77,8 +108,8 @@ def main():
     print("T =", T.ravel())
     print("baseline magnitude =", float(np.linalg.norm(T)))
 
-    left_images = sorted(glob.glob(os.path.join(PAIR_DIR, "left", "*.png")))
-    right_images = sorted(glob.glob(os.path.join(PAIR_DIR, "right", "*.png")))
+    left_images = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "left", Calib.IMAGE_EXT)))
+    right_images = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "right", Calib.IMAGE_EXT)))
 
     if not left_images or not right_images:
         print("\nNo saved image pairs found for offline remap test.")

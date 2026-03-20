@@ -1,7 +1,30 @@
 #!/usr/bin/env python3
 
+"""
+@brief
+GStreamer-based camera driver for Jetson Nano CSI cameras.
+
+This module provides a lightweight wrapper around OpenCV VideoCapture using
+the nvargus GStreamer pipeline, enabling efficient access to CSI cameras.
+
+It supports opening individual cameras or synchronized stereo pairs with
+configurable resolution, frame rate, and flip settings.
+
+Key features:
+- Encapsulated GStreamer pipeline generation
+- Simple API for single or stereo camera initialization
+- Integration with shared configuration parameters
+- Error handling for camera availability
+
+Intended use:
+- Reusable camera interface across capture, calibration, and inference scripts
+- Consistent camera setup in stereo vision pipelines
+- Simplifying CSI camera access on embedded platforms
+"""
+
 import cv2
 
+from config import Camera
 
 class CameraDriver:
     @staticmethod
@@ -31,3 +54,11 @@ class CameraDriver:
         if not cap.isOpened():
             raise RuntimeError(f"Could not open camera sensor-id={sensor_id}")
         return cap
+
+    @staticmethod
+    def open_stereo_cameras(width=Camera.WIDTH, height=Camera.HEIGHT, fps=Camera.FPS,
+                            left_id=Camera.LEFT, right_id=Camera.RIGHT,
+                            flip_method=0):
+        capL = CameraDriver.open_camera(left_id, width, height, fps, flip_method)
+        capR = CameraDriver.open_camera(right_id, width, height, fps, flip_method)
+        return capL, capR

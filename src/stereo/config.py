@@ -25,5 +25,9 @@ class Calib:     # parameters used during calibration
     IMAGE_EXT = "*.png"
     IMAGE_EXTENSIONS = ("*.png", "*.jpg", "*.jpeg", "*.bmp")
     DELETE_BAD_AUTOMATICALLY = True   # set True to auto-delete pairs where either side fails
+    CALIBRATION_FILE = "stereo_calibration.npz"  # produced during calibration
 
- 
+class Streamer:
+    MAX_RANGE_M = 5.0
+    START_IN_HEATMAP_MODE = False  # False = disparity, True = depth heatmap
+

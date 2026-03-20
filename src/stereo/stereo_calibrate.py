@@ -1,8 +1,44 @@
 #!/usr/bin/env python3
+
+"""
+@brief
+Stereo camera calibration and rectification pipeline.
+
+This script processes a dataset of stereo image pairs to compute intrinsic
+parameters for each camera and extrinsic parameters between them.
+
+It detects chessboard corners in left/right images, filters valid pairs,
+and performs:
+- Monocular calibration for each camera
+- Stereo calibration to estimate relative pose (R, T)
+- Stereo rectification and projection matrix computation
+- Generation of undistortion and rectification maps
+
+Only image pairs with successful corner detection in both views are used,
+improving calibration robustness.
+
+The resulting calibration data (intrinsics, distortion, extrinsics,
+rectification transforms, and remap grids) is saved to a .npz file for
+later use in disparity and 3D reconstruction.
+
+Key features:
+- Automatic filtering of invalid stereo pairs
+- Subpixel corner refinement for accuracy
+- Full calibration + rectification pipeline
+- Visual feedback for accepted pairs
+
+Intended use:
+- Producing stereo calibration files for depth estimation pipelines
+- Preparing rectification maps for real-time disparity computation
+- Ensuring accurate geometric alignment between stereo cameras
+"""
+
 import cv2
 import glob
 import numpy as np
 import os
+
+from config import Stereo, Calib
 
 #
 # Stereo vision on Nano:
@@ -25,16 +61,9 @@ Capture a new set with:
 A set of 15 very diverse images is often better than 23 repetitive ones.
 """
 
-# ====== EDIT THESE TO MATCH YOUR BOARD ======
-CHESSBOARD_SIZE = (8, 6)   # (corners_across, corners_down) = inner corners
-SQUARE_SIZE = 0.0282101190334    # meters  =(28.2285714 + 28.1916666667) / 2 mm
-PAIR_DIR = "stereo_pairs"
-# ============================================
-
-
 def main():
-    left_images = sorted(glob.glob(os.path.join(PAIR_DIR, "left", "*.png")))
-    right_images = sorted(glob.glob(os.path.join(PAIR_DIR, "right", "*.png")))
+    left_images = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "left", Calib.IMAGE_EXT)))
+    right_images = sorted(glob.glob(os.path.join(Calib.PAIR_DIR, "right", Calib.IMAGE_EXT)))
 
     if len(left_images) == 0 or len(right_images) == 0:
         raise RuntimeError("No stereo images found")
@@ -43,8 +72,8 @@ def main():
         raise RuntimeError("Left/right image count mismatch")
 
     # 3D points in chessboard coordinate system
-    objp = np.zeros((CHESSBOARD_SIZE[0] * CHESSBOARD_SIZE[1], 3), np.float32)
-    objp[:, :2] = np.mgrid[0:CHESSBOARD_SIZE[0], 0:CHESSBOARD_SIZE[1]].T.reshape(-1, 2)
+    objp = np.zeros((Stereo.CHESSBOARD_SIZE[0] * Stereo.CHESSBOARD_SIZE[1], 3), np.float32)
+    objp[:, :2] = np.mgrid[0:Stereo.CHESSBOARD_SIZE[0], 0:Stereo.CHESSBOARD_SIZE[1]].T.reshape(-1, 2)
     objp *= SQUARE_SIZE
 
     objpoints = []
@@ -76,8 +105,8 @@ def main():
 
         image_size = grayL.shape[::-1]
 
-        retL, cornersL = cv2.findChessboardCorners(grayL, CHESSBOARD_SIZE, None)
-        retR, cornersR = cv2.findChessboardCorners(grayR, CHESSBOARD_SIZE, None)
+        retL, cornersL = cv2.findChessboardCorners(grayL, Stereo.CHESSBOARD_SIZE, None)
+        retR, cornersR = cv2.findChessboardCorners(grayR, Stereo.CHESSBOARD_SIZE, None)
 
         if retL and retR:
             cornersL = cv2.cornerSubPix(grayL, cornersL, (11, 11), (-1, -1), criteria_subpix)
@@ -90,8 +119,8 @@ def main():
 
             visL = imgL.copy()
             visR = imgR.copy()
-            cv2.drawChessboardCorners(visL, CHESSBOARD_SIZE, cornersL, retL)
-            cv2.drawChessboardCorners(visR, CHESSBOARD_SIZE, cornersR, retR)
+            cv2.drawChessboardCorners(visL, Stereo.CHESSBOARD_SIZE, cornersL, retL)
+            cv2.drawChessboardCorners(visR, Stereo.CHESSBOARD_SIZE, cornersR, retR)
             preview = cv2.hconcat([visL, visR])
             cv2.imshow("Accepted Pair", preview)
             cv2.waitKey(150)
@@ -154,7 +183,6 @@ def main():
         K2, D2, RR, PR, image_size, cv2.CV_32FC1
     )
 
-    out_file = "stereo_calibration.npz"
     np.savez(
         out_file,
         K1=K1, D1=D1,
@@ -170,7 +198,7 @@ def main():
         image_height=image_size[1],
     )
 
-    print(f"Saved calibration to {out_file}")
+    print(f"Saved calibration to {Calib.CALIBRATION_FILE}")
 
 
 if __name__ == "__main__":

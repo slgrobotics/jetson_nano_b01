@@ -32,7 +32,7 @@ import cv2
 import glob
 import os
 
-from config import Camera, Stereo, Calib
+from config import Stereo, Calib
 
 
 def detect(img):

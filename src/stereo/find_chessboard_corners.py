@@ -33,7 +33,7 @@ import glob
 import os
 import time
 
-from config import Camera, Stereo, Calib
+from config import Stereo, Calib
 
 
 def find_images(folder):

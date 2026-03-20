@@ -45,14 +45,12 @@ import time
 import cv2
 import numpy as np
 
+from config import Stereo, Streamer, Calib
+from helper_camera import CameraDriver
 
-# =========================
-# Configuration
-# =========================
-MIN_VALID_DISP = 1.0
-MAX_RANGE_M = 5.0
-
-START_IN_HEATMAP_MODE = False  # False = disparity, True = depth heatmap
+# ==============================================
+# Protocol configuration - must match ROS2 node
+# ==============================================
 
 HEADER_STRUCT = struct.Struct("<4sBBBBIQHH")
 HEADER_MAGIC = b"SPC2"
@@ -109,28 +107,6 @@ def parse_args():
     )
 
     return parser.parse_args()
-
-
-def gstreamer_pipeline(sensor_id=0, width=1280, height=720, fps=30, flip_method=0):
-    return (
-        f"nvarguscamerasrc sensor-id={sensor_id} ! "
-        f"video/x-raw(memory:NVMM), width=(int){width}, height=(int){height}, "
-        f"format=(string)NV12, framerate=(fraction){fps}/1 ! "
-        f"nvvidconv flip-method={flip_method} ! "
-        f"video/x-raw, width=(int){width}, height=(int){height}, format=(string)BGRx ! "
-        f"videoconvert ! "
-        f"video/x-raw, format=(string)BGR ! appsink drop=true sync=false max-buffers=1"
-    )
-
-
-def open_camera(sensor_id, width, height, fps):
-    cap = cv2.VideoCapture(
-        gstreamer_pipeline(sensor_id=sensor_id, width=width, height=height, fps=fps),
-        cv2.CAP_GSTREAMER,
-    )
-    if not cap.isOpened():
-        raise RuntimeError(f"Could not open camera sensor-id={sensor_id}")
-    return cap
 
 
 def draw_preview_grid(img, step=40):
@@ -400,9 +376,9 @@ def main():
     """
 
     try:
-        calib = np.load("stereo_calibration.npz")
+        calib = np.load(Calib.CALIBRATION_FILE)
     except FileNotFoundError:
-        raise RuntimeError("Calibration file 'stereo_calibration.npz' not found")
+        raise RuntimeError(f"Calibration file '{Calib.CALIBRATION_FILE}' not found")
 
     mapLx = calib["mapLx"]
     mapLy = calib["mapLy"]
@@ -414,13 +390,11 @@ def main():
 
     width = int(calib["image_width"])
     height = int(calib["image_height"])
-    fps = 30
 
     focal_px = float(PL[0, 0])
     baseline_m = float(np.linalg.norm(T))
 
-    capL = open_camera(0, width, height, fps)
-    capR = open_camera(1, width, height, fps)
+    capL, capR = CameraDriver.open_stereo_cameras(width, height)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -467,7 +441,7 @@ def main():
 
             valid_mask = make_valid_disparity_mask(
                 disparity,
-                min_valid_disp=MIN_VALID_DISP,
+                min_valid_disp=Stereo.MIN_VALID_DISP,
                 invalid_left_cols=invalid_left_cols,
                 invalid_right_cols=invalid_right_cols,
             )
@@ -480,7 +454,7 @@ def main():
                 valid_mask=valid_mask,
                 rows=grid_rows,
                 cols=grid_cols,
-                max_range_m=MAX_RANGE_M,
+                max_range_m=Streamer.MAX_RANGE_M,
                 min_confidence=min_confidence,
             )
 
@@ -518,7 +492,7 @@ def main():
                         focal_px=focal_px,
                         baseline_m=baseline_m,
                         valid_mask=valid_mask,
-                        max_range_m=MAX_RANGE_M,
+                        max_range_m=Streamer.MAX_RANGE_M,
                     )
                     mode_text = "heatmap"
                 else:
@@ -538,7 +512,7 @@ def main():
                     baseline_m=baseline_m,
                     rows=grid_rows,
                     cols=grid_cols,
-                    max_depth_cm=int(MAX_RANGE_M * 100.0),
+                    max_depth_cm=int(Streamer.MAX_RANGE_M * 100.0),
                 )
 
                 cv2.putText(

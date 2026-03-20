@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-import cv2
-import numpy as np
-import time
 
 """
 Now the "disparity" picture started making sense, I want to improve code a bit.
@@ -26,26 +23,12 @@ The script is doing all of this every frame:
      - https://chatgpt.com/s/t_69b980a930548191966da7068d27cfcb
 """
 
-def gstreamer_pipeline(sensor_id=0, width=1280, height=720, fps=30, flip_method=0):
-    return (
-        f"nvarguscamerasrc sensor-id={sensor_id} ! "
-        f"video/x-raw(memory:NVMM), width=(int){width}, height=(int){height}, "
-        f"format=(string)NV12, framerate=(fraction){fps}/1 ! "
-        f"nvvidconv flip-method={flip_method} ! "
-        f"video/x-raw, width=(int){width}, height=(int){height}, format=(string)BGRx ! "
-        f"videoconvert ! "
-        f"video/x-raw, format=(string)BGR ! appsink drop=true sync=false max-buffers=1"
-    )
+import cv2
+import numpy as np
+import time
 
-
-def open_camera(sensor_id, width, height, fps):
-    cap = cv2.VideoCapture(
-        gstreamer_pipeline(sensor_id=sensor_id, width=width, height=height, fps=fps),
-        cv2.CAP_GSTREAMER,
-    )
-    if not cap.isOpened():
-        raise RuntimeError(f"Could not open camera sensor-id={sensor_id}")
-    return cap
+from config import Calib
+from helper_camera import CameraDriver
 
 
 def draw_horizontal_lines(img, step=40):
@@ -150,7 +133,10 @@ def make_raw_disparity_view(disparity, min_disp, num_disp):
 
 
 def main():
-    calib = np.load("stereo_calibration.npz")
+    try:
+        calib = np.load(Calib.CALIBRATION_FILE)
+    except FileNotFoundError:
+        raise RuntimeError(f"Calibration file '{Calib.CALIBRATION_FILE}' not found")
 
     mapLx = calib["mapLx"]
     mapLy = calib["mapLy"]
@@ -163,7 +149,6 @@ def main():
 
     width = int(calib["image_width"])
     height = int(calib["image_height"])
-    fps = 30
 
     # Stereo geometry
     focal_px = float(PL[0, 0])         # rectified focal length in pixels
@@ -172,8 +157,7 @@ def main():
     print(f"Using focal length: {focal_px:.2f} px")
     print(f"Using baseline    : {baseline_m * 100.0:.2f} cm")
 
-    capL = open_camera(0, width, height, fps)
-    capR = open_camera(1, width, height, fps)
+    capL, capR = CameraDriver.open_stereo_cameras(width, height)
 
     min_disp = 0
     num_disp = 16 * 6  # "16 * 3" will increase FPS from 1.0 to 1.8, but quality will suffer 

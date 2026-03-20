@@ -1,16 +1,44 @@
 #!/usr/bin/env python3
+
+"""
+@brief
+Monocular undistortion sanity check for stereo cameras.
+
+This script loads intrinsic calibration parameters for both cameras and
+applies undistortion to a sample stereo image pair.
+
+The resulting images are displayed to visually verify that lens distortion
+has been correctly removed (e.g., straight lines appear straight, no warping).
+
+Key features:
+- Loads calibration data from saved .npz file
+- Applies OpenCV undistortion maps to left and right images
+- Displays side-by-side results for visual inspection
+
+Intended use:
+- Quick validation of intrinsic calibration quality
+- Detecting incorrect calibration parameters or resolution mismatch
+- Verifying camera models before stereo rectification
+"""
+
 import cv2
 import numpy as np
 import glob
 import os
 
-data = np.load("stereo_calibration.npz")
-K1, D1 = data["K1"], data["D1"]
-K2, D2 = data["K2"], data["D2"]
-w, h = int(data["image_width"]), int(data["image_height"])
+from config import Calib
 
-left_images = sorted(glob.glob(os.path.join("stereo_pairs", "left", "*.png")))
-right_images = sorted(glob.glob(os.path.join("stereo_pairs", "right", "*.png")))
+try:
+    calib = np.load(Calib.CALIBRATION_FILE)
+except FileNotFoundError:
+    raise RuntimeError(f"Calibration file '{Calib.CALIBRATION_FILE}' not found")
+
+K1, D1 = calib["K1"], calib["D1"]
+K2, D2 = calib["K2"], calib["D2"]
+w, h = int(calib["image_width"]), int(calib["image_height"])
+
+left_images = sorted(glob.glob(os.path.join("stereo_pairs", "left", Calib.IMAGE_EXT)))
+right_images = sorted(glob.glob(os.path.join("stereo_pairs", "right", Calib.IMAGE_EXT)))
 
 imgL = cv2.imread(left_images[0])
 imgR = cv2.imread(right_images[0])
@@ -23,5 +51,7 @@ uR = cv2.remap(imgR, mapRx, mapRy, cv2.INTER_LINEAR)
 
 cv2.imshow("mono undistort left", uL)
 cv2.imshow("mono undistort right", uR)
+
 cv2.waitKey(0)
+
 cv2.destroyAllWindows()

@@ -34,7 +34,8 @@ import cv2
 import os
 import time
 
-from config import Camera, Stereo, Calib
+from config import Stereo, Calib
+from helper_camera import CameraDriver
 
 #
 # Stereo vision on Nano:
@@ -45,28 +46,6 @@ from config import Camera, Stereo, Calib
 #  - https://markhedleyjones.com/projects/calibration-checkerboard-collection
 #  - https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-30mm-8x6.pdf
 #
-
-
-def gstreamer_pipeline(sensor_id, width, height, fps, flip_method):
-    return (
-        f"nvarguscamerasrc sensor-id={sensor_id} ! "
-        f"video/x-raw(memory:NVMM), width=(int){width}, height=(int){height}, "
-        f"format=(string)NV12, framerate=(fraction){fps}/1 ! "
-        f"nvvidconv flip-method={flip_method} ! "
-        f"video/x-raw, width=(int){width}, height=(int){height}, format=(string)BGRx ! "
-        f"videoconvert ! "
-        f"video/x-raw, format=(string)BGR ! appsink drop=true sync=false max-buffers=1"
-    )
-
-
-def open_camera(sensor_id, width, height, fps):
-    cap = cv2.VideoCapture(
-        gstreamer_pipeline(sensor_id=sensor_id, width=width, height=height, fps=fps, flip_method=0),
-        cv2.CAP_GSTREAMER,
-    )
-    if not cap.isOpened():
-        raise RuntimeError(f"Could not open camera sensor-id={sensor_id}")
-    return cap
 
 
 def flush_and_read(cap, n=4):
@@ -122,8 +101,7 @@ def main():
     os.makedirs(left_dir, exist_ok=True)
     os.makedirs(right_dir, exist_ok=True)
 
-    capL = open_camera(Camera.LEFT, Camera.WIDTH, Camera.HEIGHT, Camera.FPS)
-    capR = open_camera(Camera.RIGHT, Camera.WIDTH, Camera.HEIGHT, Camera.FPS)
+    capL, capR = CameraDriver.open_stereo_cameras()
 
     print(f"Starting auto capture: {Calib.NUM_PAIRS} pairs, interval {Calib.INTERVAL_SEC}s")
     print("Hold board still before each capture...\n")
