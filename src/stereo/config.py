@@ -7,9 +7,11 @@ class Camera:    # parameters related to camera
     Defines resolution, frame rate, and device identifiers for left and right
     CSI cameras. These settings are used across capture, calibration, and
     streaming components to ensure consistent image dimensions and timing.
+
+    Note: the 640x360 resolution doesn't seem to calibrate well
     """
-    WIDTH = 640
-    HEIGHT = 360
+    WIDTH = 1280
+    HEIGHT = 720
     FPS = 30
     LEFT = 0
     RIGHT = 1
@@ -53,7 +55,7 @@ class Calib:     # parameters used during calibration
     IMAGE_EXT = "*.png"
     IMAGE_EXTENSIONS = ("*.png", "*.jpg", "*.jpeg", "*.bmp")
     DELETE_BAD_AUTOMATICALLY = True   # set True to auto-delete pairs where either side fails
-    CALIBRATION_FILE = "stereo_calibration.npz"  # produced during calibration
+    CALIBRATION_FILE = f"calib_{Camera.WIDTH}x{Camera.HEIGHT}.npz"  # produced during calibration
 
 class Streamer:
     """

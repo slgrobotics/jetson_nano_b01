@@ -46,6 +46,37 @@ from helper_camera import CameraDriver
 #  - https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-30mm-8x6.pdf
 #
 
+def is_dir_empty_recursive(base_dir):
+    for _, _, files in os.walk(base_dir):
+        if files:
+            return False
+    return True
+
+def maybe_clear_dataset(base_dir):
+    try:
+        answer = input(f"Delete ALL existing pairs in '{base_dir}' before capture? [Y/n]: ").strip().lower()
+    except EOFError:
+        answer = ""  # default = YES
+
+    if answer in ("", "y", "yes"):
+        print("Deleting existing pairs...")
+
+        def delete_in_dir(d):
+            count = 0
+            for f in os.listdir(d):
+                path = os.path.join(d, f)
+                if os.path.isdir(path):
+                    count += delete_in_dir(path)
+                elif os.path.isfile(path):
+                    os.remove(path)
+                    count += 1
+            return count
+
+        total_deleted = delete_in_dir(base_dir)
+
+        print(f"Deleted {total_deleted} files from '{base_dir}'\n")
+    else:
+        print("Keeping existing stereo pairs.\n")
 
 def flush_and_read(cap, n=4):
     for _ in range(n):
@@ -95,10 +126,16 @@ def detect_and_draw(img, chessboard_size):
 
 def main():
     out_dir = Calib.PAIR_DIR
+
+    print("\nStereo pairs directory:", os.path.dirname(out_dir))
+
     left_dir = os.path.join(out_dir, "left")
     right_dir = os.path.join(out_dir, "right")
     os.makedirs(left_dir, exist_ok=True)
     os.makedirs(right_dir, exist_ok=True)
+
+    if not is_dir_empty_recursive(out_dir):  # only reacts when files exist, directories ok
+        maybe_clear_dataset(out_dir)
 
     capL, capR = CameraDriver.open_stereo_cameras()
 
