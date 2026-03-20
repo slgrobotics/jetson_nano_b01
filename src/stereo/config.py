@@ -8,9 +8,11 @@ class Camera:    # parameters related to camera
     RIGHT = 1
 
 class Stereo:    # parameters related to stereo algorithms
-    CHESSBOARD_SIZE = (8, 6)  # inner corners (across, down)
-    SQUARE_SIZE = 0.02821     # meters  =(28.2285714 + 28.1916666667) / 2 mm
-    # Depth filtering:
+    # Important: these parameters should be measured on YOUR board!
+    CHESSBOARD_SIZE = (8, 6)   # inner corners (across, down)
+    #SQUARE_SIZE = 0.02821     # meters, small board
+    SQUARE_SIZE = 0.06290      # meters, large board
+    # Depth filtering (reasonable defaults):
     MIN_VALID_DISP = 1.0
     MAX_RANGE_M = 5.0
     MIN_CONFIDENCE = 0.02
