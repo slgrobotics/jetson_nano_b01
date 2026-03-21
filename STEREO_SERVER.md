@@ -69,7 +69,7 @@ There are multiple Python scripts in `~/jetson_nano_b01/src/stereo` directory:
 jetson@jetson:~/jetson_nano_b01/src/stereo$ ls -l
 Checkerboard-A4-30mm-8x6.pdf - printable board from https://markhedleyjones.com/projects/calibration-checkerboard-collection
 check_stereo_pairs.py*
-disparity_server.py*         - the streamer to send UDP packets to ROS2 node
+disparity_streamer.py*         - the streamer to send UDP packets to ROS2 node
 find_chessboard_corners.py*
 inspect_stereo_npz.py*
 mono_undistortion_test.py*
