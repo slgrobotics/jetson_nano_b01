@@ -583,11 +583,12 @@ def main():
                 min_confidence=min_confidence,
             )
 
+            now = time.time()
+            timestamp_ns = int(now * 1e9)
+
             packet = pack_packet(seq, grid_rows, grid_cols, points, timestamp_ns)
             sock.sendto(packet, (udp_ip, udp_port))
 
-            now = time.time()
-            timestamp_ns = int(now * 1e9)
             frame_buffer.update(left_rect, seq, timestamp_ns)
 
             dt = now - last_time
