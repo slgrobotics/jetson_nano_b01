@@ -123,13 +123,6 @@ def parse_args():
         help="Disable TCP server for on-demand JPEG preview images",
     )
 
-    parser.add_argument(
-        "--disable-tcp-image-server",
-        dest="enable_tcp_image_server",
-        action="store_false",
-        help="Disable TCP server for on-demand JPEG preview images",
-    )
-
     return parser.parse_args()
 
 
