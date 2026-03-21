@@ -418,7 +418,7 @@ def main():
     seq = 0
     last_time = time.time()
     fps_filtered = 0.0
-    show_heatmap = START_IN_HEATMAP_MODE
+    show_heatmap = Streamer.START_IN_HEATMAP_MODE
 
     try:
         while True:
