@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
 
-"""
-Stereo calibration inspection and sanity-check tool.
-
-This script loads a saved stereo calibration (.npz) file and performs a series
-of diagnostics to verify its correctness and usability.
-
-It reports statistics for all calibration matrices (intrinsics, distortion,
-extrinsics, rectification, projection, and remap grids), checks numerical
-validity, and evaluates whether remap coordinates fall within image bounds.
-
-Additionally, it applies the rectification maps to a sample stereo image pair
-and displays the result with horizontal guide lines to visually confirm proper
-alignment.
-
-Key features:
-- Detailed statistics for calibration matrices and maps
-- Validation of finite values and expected ranges
-- Baseline and distortion parameter inspection
-- Offline rectification test with visual alignment cues
-
-Intended use:
-- Debugging and validating stereo calibration outputs
-- Detecting corrupted or inconsistent calibration data
-- Verifying rectification quality before disparity computation
-"""
+# =====================================================
+# Stereo calibration inspection and sanity-check tool.
+#
+# This script loads a saved stereo calibration (.npz) file and performs a series
+# of diagnostics to verify its correctness and usability.
+#
+# It reports statistics for all calibration matrices (intrinsics, distortion,
+# extrinsics, rectification, projection, and remap grids), checks numerical
+# validity, and evaluates whether remap coordinates fall within image bounds.
+#
+# Additionally, it applies the rectification maps to a sample stereo image pair
+# and displays the result with horizontal guide lines to visually confirm proper
+# alignment.
+#
+# Key features:
+# - Detailed statistics for calibration matrices and maps
+# - Validation of finite values and expected ranges
+# - Baseline and distortion parameter inspection
+# - Offline rectification test with visual alignment cues
+#
+# Intended use:
+# - Debugging and validating stereo calibration outputs
+# - Detecting corrupted or inconsistent calibration data
+# - Verifying rectification quality before disparity computation
+# =====================================================
 
 import numpy as np
 import cv2

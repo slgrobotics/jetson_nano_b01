@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 
-"""
-
-This is just for validating yolo_tcp_server.py from:
- - another machine or 
- - from inside the Nano container.
-
-Measures the round-trip latency including:
- - JPEG encoding (client)
- - network transfer
- - JPEG decoding (Nano)
- - YOLO inference
- - JSON serialization
- - network transfer back
-
-So it approximates the real robot runtime latency, not just raw inference.
-
-See https://chatgpt.com/s/t_69ac38f6cb3881919810a636f657f0e0
-
-"""
+# =====================================================
+#
+# This is just for validating yolo_tcp_server.py from:
+#  - another machine or 
+#  - from inside the Nano container.
+#
+# Measures the round-trip latency including:
+#  - JPEG encoding (client)
+#  - network transfer
+#  - JPEG decoding (Nano)
+#  - YOLO inference
+#  - JSON serialization
+#  - network transfer back
+#
+# So it approximates the real robot runtime latency, not just raw inference.
+#
+# See https://chatgpt.com/s/t_69ac38f6cb3881919810a636f657f0e0
+#
+# =====================================================
 
 import json
 import socket

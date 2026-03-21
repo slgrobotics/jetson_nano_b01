@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 
-"""
-Monocular undistortion sanity check for stereo cameras.
-
-This script loads intrinsic calibration parameters for both cameras and
-applies undistortion to a sample stereo image pair.
-
-The resulting images are displayed to visually verify that lens distortion
-has been correctly removed (e.g., straight lines appear straight, no warping).
-
-Key features:
-- Loads calibration data from saved .npz file
-- Applies OpenCV undistortion maps to left and right images
-- Displays side-by-side results for visual inspection
-
-Intended use:
-- Quick validation of intrinsic calibration quality
-- Detecting incorrect calibration parameters or resolution mismatch
-- Verifying camera models before stereo rectification
-"""
+# =====================================================
+# Monocular undistortion sanity check for stereo cameras.
+#
+# This script loads intrinsic calibration parameters for both cameras and
+# applies undistortion to a sample stereo image pair.
+#
+# The resulting images are displayed to visually verify that lens distortion
+# has been correctly removed (e.g., straight lines appear straight, no warping).
+#
+# Key features:
+# - Loads calibration data from saved .npz file
+# - Applies OpenCV undistortion maps to left and right images
+# - Displays side-by-side results for visual inspection
+#
+# Intended use:
+# - Quick validation of intrinsic calibration quality
+# - Detecting incorrect calibration parameters or resolution mismatch
+# - Verifying camera models before stereo rectification
+# =====================================================
 
 import cv2
 import numpy as np

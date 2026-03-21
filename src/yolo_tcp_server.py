@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-"""
+# =====================================================
 #
 # Run it in the Nano container.
 # If your container is on host networking, the RPi5/ROS2 can connect to the Nano IP on port 5001.
 # See https://chatgpt.com/s/t_69ab72e92950819191c249c64f5adc5b
 #
+"""
 python3 yolo_tcp_server.py \
   --model /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine \
   --imgsz 480 \
@@ -15,6 +16,7 @@ python3 yolo_tcp_server.py \
   --request-timeout 30 \
   --quiet
 """
+# =====================================================
 
 import argparse
 import socket

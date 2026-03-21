@@ -73,10 +73,11 @@ class ArgusStdoutGrabber:
         self.start()
 
     def read_frame(self, timeout_s=2.0):
-        """
-        Returns BGR frame (h, w, 3) or None on timeout / stream trouble.
-        Never blocks forever.
-        """
+        # =====================================================
+        # Returns BGR frame (h, w, 3) or None on timeout / stream trouble.
+        # Never blocks forever.
+        # =====================================================
+
         self.restart_if_needed()
         if not self.proc or not self.proc.stdout:
             time.sleep(0.05)

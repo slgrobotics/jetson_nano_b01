@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-"""
-
-This is just for validating yolo_tcp_server.py from:
- - another machine or 
- - from inside the Nano container.
-
-See https://chatgpt.com/s/t_69ab72e92950819191c249c64f5adc5b
-
-"""
+# =====================================================
+#
+# This is just for validating yolo_tcp_server.py from:
+#  - another machine or 
+#  - from inside the Nano container.
+#
+# See https://chatgpt.com/s/t_69ab72e92950819191c249c64f5adc5b
+#
+# =====================================================
 
 import json
 import socket

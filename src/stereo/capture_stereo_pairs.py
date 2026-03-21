@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 
-"""
-Stereo image pair capture tool for calibration on Jetson Nano.
-
-This script captures synchronized image pairs from two CSI cameras at fixed
-time intervals and saves them to disk for stereo calibration.
-
-During operation, a live preview is displayed. Before each capture, a short
-visual cue (red center rectangle) is shown to prompt the user to remain still,
-improving capture consistency and calibration accuracy.
-After each capture, image pair is validated for successful chessboard corner
-detection, and only valid pairs are included in the dataset.
-
-Key features:
-- Dual-camera synchronized capture using GStreamer (nvargus)
-- Automatic timed acquisition of N stereo pairs
-- Pre-capture stabilization cue (visual flash overlay)
-- Frame flushing to reduce motion artifacts
-- Visual indication of chessboard corners found or not
-- Organized output into left/right image folders
-
-Intended use:
-- Collecting high-quality stereo datasets for OpenCV calibration
-- Ensuring varied board poses while minimizing motion blur
-- Simple, repeatable capture workflow on embedded platforms
-
-Move the checkerboard through many positions and angles, filling the frame, tilting and rotating it,
- and covering different depths—holding it steady during each capture.
-"""
+# =====================================================
+# Stereo image pair capture tool for calibration on Jetson Nano.
+#
+# This script captures synchronized image pairs from two CSI cameras at fixed
+# time intervals and saves them to disk for stereo calibration.
+#
+# During operation, a live preview is displayed. Before each capture, a short
+# visual cue (red center rectangle) is shown to prompt the user to remain still,
+# improving capture consistency and calibration accuracy.
+# After each capture, image pair is validated for successful chessboard corner
+# detection, and only valid pairs are included in the dataset.
+#
+# Key features:
+# - Dual-camera synchronized capture using GStreamer (nvargus)
+# - Automatic timed acquisition of N stereo pairs
+# - Pre-capture stabilization cue (visual flash overlay)
+# - Frame flushing to reduce motion artifacts
+# - Visual indication of chessboard corners found or not
+# - Organized output into left/right image folders
+#
+# Intended use:
+# - Collecting high-quality stereo datasets for OpenCV calibration
+# - Ensuring varied board poses while minimizing motion blur
+# - Simple, repeatable capture workflow on embedded platforms
+#
+# Move the checkerboard through many positions and angles, filling the frame, tilting and rotating it,
+#  and covering different depths—holding it steady during each capture.
+# =====================================================
 
 import cv2
 import os
@@ -85,9 +85,9 @@ def flush_and_read(cap, n=4):
 
 
 def draw_flash_border(img, color=(0, 0, 255), thickness=4):
-    """
-    Draw a centered rectangle sized to 1/5 of the image width and height.
-    """
+    # =====================================================
+    # Draw a centered rectangle sized to 1/5 of the image width and height.
+    # =====================================================
     out = img.copy()
     h, w = out.shape[:2]
 

@@ -13,26 +13,26 @@ import numpy as np
 from argus_stdout_grabber import ArgusStdoutGrabber
 from ultralytics import YOLO
 
-"""
+# =====================================================
 # Run in the terminal to test the pipeline:
-
-gst-launch-1.0 -v nvarguscamerasrc sensor-id=0 ! 'video/x-raw(memory:NVMM),width=640,height=480,framerate=5/1,format=NV12' ! \
-nvvidconv ! 'video/x-raw,format=BGRx,width=640,height=480' !  fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
-
-Make a shell script to run this program:
----
-#!/bin/bash
-
-python3 yolo_runner.py --model /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine  --sensor-id 0 --width 640 --height 480 --capture-fps 5 --max-yolo-hz 5 --imgsz 480  --warmup 3 --out-dir "." --save-every 10
----
-
-"""
+#
+# gst-launch-1.0 -v nvarguscamerasrc sensor-id=0 ! 'video/x-raw(memory:NVMM),width=640,height=480,framerate=5/1,format=NV12' ! \
+# nvvidconv ! 'video/x-raw,format=BGRx,width=640,height=480' !  fpsdisplaysink video-sink=fakesink sync=false text-overlay=false -v
+#
+# Make a shell script to run this program:
+# ---
+# #!/bin/bash
+#
+# python3 yolo_runner.py --model /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine  --sensor-id 0 --width 640 --height 480 --capture-fps 5 --max-yolo-hz 5 --imgsz 480  --warmup 3 --out-dir "." --save-every 10
+# ---
+#
+# =====================================================
 
 def warm_model(model: YOLO, imgsz: int, n: int = 1) -> None:
-    """
-    Warm up TensorRT / CUDA by running a few dummy inferences.
-    Your engine is fixed at 480, so imgsz must match that.
-    """
+    # =====================================================
+    # Warm up TensorRT / CUDA by running a few dummy inferences.
+    # Your engine is fixed at 480, so imgsz must match that.
+    # =====================================================
     dummy = np.zeros((imgsz, imgsz, 3), dtype=np.uint8)
     t0 = time.time()
     for i in range(n):
@@ -43,18 +43,18 @@ def warm_model(model: YOLO, imgsz: int, n: int = 1) -> None:
 
 def main():
 
-    """
+    # =====================================================
     # quick pipeline test:
-    grabber = ArgusStdoutGrabber(0, 640, 480, 5)
-    grabber.start()
-
-    while True:
-        frame = grabber.read_frame()
-        if frame is not None:
-            print(frame.shape)
-        else:
-            print("got None frame")
-    """
+    # grabber = ArgusStdoutGrabber(0, 640, 480, 5)
+    # grabber.start()
+    #
+    # while True:
+    #     frame = grabber.read_frame()
+    #     if frame is not None:
+    #         print(frame.shape)
+    #     else:
+    #         print("got None frame")
+    # =====================================================
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)

@@ -1,51 +1,54 @@
 #!/usr/bin/env python3
 
-"""
-UDP-based stereo perception server for Jetson Nano.
-
-./disparity_streamer.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10 --min-confidence 0.02]
-
-This script captures synchronized frames from two CSI cameras, applies stereo
-rectification using precomputed calibration, computes a disparity map via
-StereoSGBM, and converts it into a sparse 3D point representation.
-
-The image is divided into a fixed grid (e.g., 10x10 cells). For each cell,
-a representative 3D point is selected based on high-percentile disparity
-(closest obstacle), filtered for validity and range, and converted into a
-ROS-compatible coordinate frame.
-
-Each frame is serialized into a compact binary packet and transmitted over
-UDP to a remote client (e.g., a ROS 2 node), which can reconstruct and publish
-the data as a PointCloud2 message.
-
-Key characteristics:
-- Low-latency, connectionless UDP streaming (no delivery guarantees)
-- Sparse, obstacle-focused point cloud (one point per grid cell)
-- Designed for constrained platforms (Jetson Nano)
-- Suitable for real-time perception prototyping and ROS 2 integration
-
-Intended use:
-- Lightweight stereo depth server feeding external ROS 2 processing
-- Obstacle detection and navigation experiments
-- Rapid iteration without full ROS stack on embedded device
-
-Receiver (ROS2 node) expectations:
-- recvfrom()
-- unpack header
-- unpack point_count point records
-- publish PointCloud2
-"""
+# =====================================================
+# UDP-based stereo perception server for Jetson Nano.
+#
+# ./disparity_streamer.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10 --min-confidence 0.02]
+#
+# This script captures synchronized frames from two CSI cameras, applies stereo
+# rectification using precomputed calibration, computes a disparity map via
+# StereoSGBM, and converts it into a sparse 3D point representation.
+#
+# The image is divided into a fixed grid (e.g., 10x10 cells). For each cell,
+# a representative 3D point is selected based on high-percentile disparity
+# (closest obstacle), filtered for validity and range, and converted into a
+# ROS-compatible coordinate frame.
+#
+# Each frame is serialized into a compact binary packet and transmitted over
+# UDP to a remote client (e.g., a ROS 2 node), which can reconstruct and publish
+# the data as a PointCloud2 message.
+#
+# Key characteristics:
+# - Low-latency, connectionless UDP streaming (no delivery guarantees)
+# - Sparse, obstacle-focused point cloud (one point per grid cell)
+# - Designed for constrained platforms (Jetson Nano)
+# - Suitable for real-time perception prototyping and ROS 2 integration
+#
+# Intended use:
+# - Lightweight stereo depth server feeding external ROS 2 processing
+# - Obstacle detection and navigation experiments
+# - Rapid iteration without full ROS stack on embedded device
+#
+# Receiver (ROS2 node) expectations:
+# - recvfrom()
+# - unpack header
+# - unpack point_count point records
+# - publish PointCloud2
+# =====================================================
 
 import argparse
 import socket
 import struct
 import time
+import threading
 
 import cv2
 import numpy as np
 
 from config import Stereo, Streamer, Calib
 from helper_camera import CameraDriver
+from ..tcp_helpers import recv_message, send_json, send_json_with_jpeg
+from helper_tcp_server import LatestFrameBuffer, resize_to_fit, encode_jpeg
 
 # ==============================================
 # Protocol configuration - must match ROS2 node
@@ -103,6 +106,28 @@ def parse_args():
         type=float,
         default=0.02,
         help="Minimum valid pixel fraction per grid cell (default: 0.02)",
+    )
+
+    parser.add_argument(
+        "--tcp-image-port",
+        type=int,
+        default=5006,
+        help="TCP port for on-demand JPEG image serving",
+    )
+
+    parser.add_argument(
+        "--disable-tcp-image-server",
+        dest="enable_tcp_image_server",
+        action="store_false",
+        default=True,
+        help="Disable TCP server for on-demand JPEG preview images",
+    )
+
+    parser.add_argument(
+        "--disable-tcp-image-server",
+        dest="enable_tcp_image_server",
+        action="store_false",
+        help="Disable TCP server for on-demand JPEG preview images",
     )
 
     return parser.parse_args()
@@ -170,11 +195,12 @@ def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
 
 
 def make_depth_heatmap_view(disparity, focal_px, baseline_m, valid_mask, max_range_m):
-    """
-    Build a true depth heatmap from disparity.
-    Near = high intensity after inversion, far = low intensity.
-    Invalid pixels are shown as black.
-    """
+    # =====================================================
+    # Build a true depth heatmap from disparity.
+    # Near = high intensity after inversion, far = low intensity.
+    # Invalid pixels are shown as black.
+    # =====================================================
+
     depth_m = np.zeros_like(disparity, dtype=np.float32)
     depth_m[valid_mask] = (focal_px * baseline_m) / disparity[valid_mask]
 
@@ -246,13 +272,13 @@ def overlay_cell_distances(
 
 
 def cam_to_ros(x_cam, y_cam, z_cam):
-    """
-    OpenCV stereo camera coordinates:
-      x right, y down, z forward
+    # =====================================================
+    # OpenCV stereo camera coordinates:
+    #   x right, y down, z forward
 
-    ROS-like convention:
-      x forward, y left, z up
-    """
+    # ROS-like convention:
+    #   x forward, y left, z up
+    # =====================================================
     x_ros = z_cam
     y_ros = -x_cam
     z_ros = -y_cam
@@ -268,15 +294,15 @@ def extract_sparse_points(
     max_range_m,
     min_confidence,
 ):
-    """
-    One representative point per cell.
+    # =====================================================
+    # One representative point per cell.
 
-    Strategy:
-    - valid disparity mask in cell
-    - pick 95th percentile disparity
-    - choose actual pixel nearest that target disparity
-    - emit XYZ + confidence + grid row/col
-    """
+    # Strategy:
+    # - valid disparity mask in cell
+    # - pick 95th percentile disparity
+    # - choose actual pixel nearest that target disparity
+    # - emit XYZ + confidence + grid row/col
+    # =====================================================
     
     h, w = disparity.shape[:2]
     points = []
@@ -320,8 +346,7 @@ def extract_sparse_points(
     return points
 
 
-def pack_packet(seq, rows, cols, points):
-    stamp_ns = int(time.time() * 1e9)  # Python 3.6 compatible
+def pack_packet(seq, rows, cols, points, stamp_ns):
 
     header = HEADER_STRUCT.pack(
         HEADER_MAGIC,
@@ -340,6 +365,88 @@ def pack_packet(seq, rows, cols, points):
         payload += POINT_STRUCT.pack(x, y, z, confidence, row, col)
 
     return bytes(payload)
+
+
+# TCP/IP helpers:
+
+def handle_tcp_client(conn, addr, frame_buffer):
+    print(f"\nTCP image client connected: {addr}")
+
+    try:
+        while True:
+            req = recv_message(conn)
+
+            request_jpeg = bool(req.get("request_jpeg", True))
+            max_width = int(req.get("max_width", 320))
+            max_height = int(req.get("max_height", 180))
+            jpeg_quality = int(req.get("jpeg_quality", 60))
+
+            if not request_jpeg:
+                send_json(conn, {
+                    "ok": True,
+                    "has_jpeg": False,
+                    "message": "request_jpeg=false",
+                })
+                continue
+
+            frame, seq, timestamp_ns = frame_buffer.get()
+            if frame is None:
+                send_json(conn, {
+                    "ok": False,
+                    "has_jpeg": False,
+                    "error": "no_frame_available",
+                })
+                continue
+
+            out = resize_to_fit(frame, max_width, max_height)
+            jpg_bytes = encode_jpeg(out, jpeg_quality)
+            h, w = out.shape[:2]
+
+            send_json_with_jpeg(conn, {
+                "ok": True,
+                "has_jpeg": True,
+                "seq": seq,
+                "timestamp_ns": timestamp_ns,
+                "width": w,
+                "height": h,
+                "jpeg_quality": jpeg_quality,
+            }, jpg_bytes)
+
+    except Exception as e:
+        print(f"\nTCP image client disconnected {addr}: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def tcp_image_server_loop(bind_host, bind_port, frame_buffer, stop_event):
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind((bind_host, bind_port))
+    srv.listen(2)
+    srv.settimeout(1.0)
+
+    print(f"TCP image server listening on {bind_host}:{bind_port}")
+
+    try:
+        while not stop_event.is_set():
+            try:
+                conn, addr = srv.accept()
+                conn.settimeout(5.0)
+            except socket.timeout:
+                continue
+
+            t = threading.Thread(
+                target=handle_tcp_client,
+                args=(conn, addr, frame_buffer),
+                daemon=True,
+            )
+            t.start()
+    finally:
+        srv.close()
+
+
 
 
 def main():
@@ -367,12 +474,19 @@ def main():
     print(f"PointCloud2 grid  : {grid_rows}x{grid_cols}")
     print(f"Min confidence    : {min_confidence:.3f}")
 
-    """
-    min_confidence:
-        0.05–0.1 → cleaner but may drop distant objects
-        <0.01 → fills more grid cells, but noisy / unstable
-        sweet spot ≈ 0.02–0.05
-    """
+    tcp_image_port = args.tcp_image_port
+    enable_tcp_image_server = args.enable_tcp_image_server
+
+    print(f"TCP image server  : {enable_tcp_image_server}")
+    if enable_tcp_image_server:
+        print(f"TCP image port    : {tcp_image_port}")
+
+    # =====================================================
+    # min_confidence:
+    #     0.05–0.1 → cleaner but may drop distant objects
+    #     <0.01 → fills more grid cells, but noisy / unstable
+    #     sweet spot ≈ 0.02–0.05
+    # =====================================================
 
     try:
         calib = np.load(Calib.CALIBRATION_FILE)
@@ -414,6 +528,18 @@ def main():
         preFilterCap=31,
         mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY,
     )
+
+    frame_buffer = LatestFrameBuffer()
+    stop_event = threading.Event()
+    tcp_thread = None
+
+    if enable_tcp_image_server:
+        tcp_thread = threading.Thread(
+            target=tcp_image_server_loop,
+            args=("0.0.0.0", tcp_image_port, frame_buffer, stop_event),
+            daemon=True,
+        )
+        tcp_thread.start()
 
     seq = 0
     last_time = time.time()
@@ -457,10 +583,13 @@ def main():
                 min_confidence=min_confidence,
             )
 
-            packet = pack_packet(seq, grid_rows, grid_cols, points)
+            packet = pack_packet(seq, grid_rows, grid_cols, points, timestamp_ns)
             sock.sendto(packet, (udp_ip, udp_port))
 
             now = time.time()
+            timestamp_ns = int(now * 1e9)
+            frame_buffer.update(left_rect, seq, timestamp_ns)
+
             dt = now - last_time
             last_time = now
             fps_now = 1.0 / dt if dt > 0 else 0.0
@@ -563,6 +692,9 @@ def main():
             seq += 1
 
     finally:
+        stop_event.set()
+        if tcp_thread is not None:
+            tcp_thread.join(timeout=2.0)
         capL.release()
         capR.release()
         sock.close()

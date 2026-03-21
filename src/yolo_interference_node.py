@@ -100,12 +100,12 @@ class ArgusStdoutGrabber:
 
 
 class YoloNode(DTROS):
-    """
-    Grabs frames directly from CSI (Argus) and publishes YOLO-annotated JPEG frames.
+    # =====================================================
+    # Grabs frames directly from CSI (Argus) and publishes YOLO-annotated JPEG frames.
 
-    Publisher:
-        ~yolo/compressed (sensor_msgs/CompressedImage)
-    """
+    # Publisher:
+    #     ~yolo/compressed (sensor_msgs/CompressedImage)
+    # =====================================================
     def __init__(self):
         super(YoloNode, self).__init__(
             node_name="yolo",

@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
 
-"""
-Interactive stereo dataset validator and cleanup tool.
-
-This script loads stereo image pairs (left/right), detects calibration
-checkerboard corners in each image, and provides visual feedback with
-annotated previews.
-
-Users can review each pair and:
-- Keep valid pairs
-- Manually delete bad pairs
-- Automatically remove pairs where detection fails
-
-The tool tracks detection statistics and summarizes dataset quality,
-helping ensure only reliable image pairs are used for stereo calibration.
-
-Key features:
-- Side-by-side visualization with detection overlays
-- Per-image pass/fail annotation
-- Interactive and automatic dataset pruning
-- Summary of detection success and failures
-
-Intended use:
-- Cleaning stereo datasets before calibration
-- Removing frames with missed or poor detections
-- Improving calibration accuracy and robustness
-"""
+# =====================================================
+# Interactive stereo dataset validator and cleanup tool.
+#
+# This script loads stereo image pairs (left/right), detects calibration
+# checkerboard corners in each image, and provides visual feedback with
+# annotated previews.
+#
+# Users can review each pair and:
+# - Keep valid pairs
+# - Manually delete bad pairs
+# - Automatically remove pairs where detection fails
+#
+# The tool tracks detection statistics and summarizes dataset quality,
+# helping ensure only reliable image pairs are used for stereo calibration.
+#
+# Key features:
+# - Side-by-side visualization with detection overlays
+# - Per-image pass/fail annotation
+# - Interactive and automatic dataset pruning
+# - Summary of detection success and failures
+#
+# Intended use:
+# - Cleaning stereo datasets before calibration
+# - Removing frames with missed or poor detections
+# - Improving calibration accuracy and robustness
+# =====================================================
 
 import cv2
 import glob

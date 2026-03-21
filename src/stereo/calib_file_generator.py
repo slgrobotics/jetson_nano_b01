@@ -1,36 +1,36 @@
 #!/usr/bin/env python3
 
-"""
-Stereo camera calibration and rectification pipeline.
-
-This script processes a dataset of stereo image pairs to compute intrinsic
-parameters for each camera and extrinsic parameters between them.
-
-It detects chessboard corners in left/right images, filters valid pairs,
-and performs:
-- Monocular calibration for each camera
-- Stereo calibration to estimate relative pose (R, T)
-- Stereo rectification and projection matrix computation
-- Generation of undistortion and rectification maps
-
-Only image pairs with successful corner detection in both views are used,
-improving calibration robustness.
-
-The resulting calibration data (intrinsics, distortion, extrinsics,
-rectification transforms, and remap grids) is saved to a .npz file for
-later use in disparity and 3D reconstruction.
-
-Key features:
-- Automatic filtering of invalid stereo pairs
-- Subpixel corner refinement for accuracy
-- Full calibration + rectification pipeline
-- Visual feedback for accepted pairs
-
-Intended use:
-- Producing stereo calibration files for depth estimation pipelines
-- Preparing rectification maps for real-time disparity computation
-- Ensuring accurate geometric alignment between stereo cameras
-"""
+# =====================================================
+# Stereo camera calibration and rectification pipeline.
+#
+# This script processes a dataset of stereo image pairs to compute intrinsic
+# parameters for each camera and extrinsic parameters between them.
+#
+# It detects chessboard corners in left/right images, filters valid pairs,
+# and performs:
+# - Monocular calibration for each camera
+# - Stereo calibration to estimate relative pose (R, T)
+# - Stereo rectification and projection matrix computation
+# - Generation of undistortion and rectification maps
+#
+# Only image pairs with successful corner detection in both views are used,
+# improving calibration robustness.
+#
+# The resulting calibration data (intrinsics, distortion, extrinsics,
+# rectification transforms, and remap grids) is saved to a .npz file for
+# later use in disparity and 3D reconstruction.
+#
+# Key features:
+# - Automatic filtering of invalid stereo pairs
+# - Subpixel corner refinement for accuracy
+# - Full calibration + rectification pipeline
+# - Visual feedback for accepted pairs
+#
+# Intended use:
+# - Producing stereo calibration files for depth estimation pipelines
+# - Preparing rectification maps for real-time disparity computation
+# - Ensuring accurate geometric alignment between stereo cameras
+# =====================================================
 
 import cv2
 import glob
@@ -48,17 +48,17 @@ from config import Camera, Stereo, Calib
 #                              https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-30mm-8x6.pdf
 # 
 
-"""
-The "pairs" set should be captured with:
- - board close, medium, and farther
- - strong tilt left/right/up/down
- - board near all four corners
- - fewer nearly identical poses
- - no blur
- - no reflections
- - rigid flat board
-A set of 15 very diverse images is often better than 23 repetitive ones.
-"""
+# =====================================================
+# The "pairs" set should be captured with:
+#  - board close, medium, and farther
+#  - strong tilt left/right/up/down
+#  - board near all four corners
+#  - fewer nearly identical poses
+#  - no blur
+#  - no reflections
+#  - rigid flat board
+# A set of 15 very diverse images is often better than 23 repetitive ones.
+# =====================================================
 
 def main():
 

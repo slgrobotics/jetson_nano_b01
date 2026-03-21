@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
 
-"""
-Stereo dataset checkerboard validation tool.
-
-This script scans captured stereo image datasets (left/right folders) and
-verifies successful detection of a calibration checkerboard pattern in each image.
-
-For every image:
-- Attempts chessboard corner detection using OpenCV
-- Refines corners and overlays visualization when found
-- Displays annotated preview with detection status
-- Reports results to console
-
-The tool helps identify problematic frames (missed detections, motion blur,
-poor coverage) before running stereo calibration.
-
-Key features:
-- Batch processing of left/right stereo image sets
-- Visual feedback with drawn corners and status labels
-- Configurable chessboard size and timing via shared config
-- Summary statistics of detection success/failure
-
-Intended use:
-- Pre-filtering stereo datasets for calibration
-- Diagnosing capture quality issues
-- Ensuring sufficient and valid board detections
-"""
+# =====================================================
+# Stereo dataset checkerboard validation tool.
+#
+# This script scans captured stereo image datasets (left/right folders) and
+# verifies successful detection of a calibration checkerboard pattern in each image.
+#
+# For every image:
+# - Attempts chessboard corner detection using OpenCV
+# - Refines corners and overlays visualization when found
+# - Displays annotated preview with detection status
+# - Reports results to console
+#
+# The tool helps identify problematic frames (missed detections, motion blur,
+# poor coverage) before running stereo calibration.
+#
+# Key features:
+# - Batch processing of left/right stereo image sets
+# - Visual feedback with drawn corners and status labels
+# - Configurable chessboard size and timing via shared config
+# - Summary statistics of detection success/failure
+#
+# Intended use:
+# - Pre-filtering stereo datasets for calibration
+# - Diagnosing capture quality issues
+# - Ensuring sufficient and valid board detections
+# =====================================================
 
 import cv2
 import glob

@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 
-"""
-Minimal GStreamer camera open test for Jetson Nano.
-
-This script attempts to initialize a CSI camera using the nvargus GStreamer
-pipeline and reports whether the camera was successfully opened.
-
-It uses resolution and frame rate parameters from the shared configuration.
-
-Key features:
-- Simple pipeline-based camera initialization
-- Quick verification of camera availability and GStreamer setup
-
-Intended use:
-- Sanity check for CSI camera and nvargus pipeline
-- Debugging camera access issues before running full applications
-"""
+# =====================================================
+# Minimal GStreamer camera open test for Jetson Nano.
+#
+# This script attempts to initialize a CSI camera using the nvargus GStreamer
+# pipeline and reports whether the camera was successfully opened.
+#
+# It uses resolution and frame rate parameters from the shared configuration.
+#
+# Key features:
+# - Simple pipeline-based camera initialization
+# - Quick verification of camera availability and GStreamer setup
+#
+# Intended use:
+# - Sanity check for CSI camera and nvargus pipeline
+# - Debugging camera access issues before running full applications
+# =====================================================
 
 #
 # Stereo vision on Nano:

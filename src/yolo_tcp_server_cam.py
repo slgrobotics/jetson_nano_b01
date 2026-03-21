@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-"""
+# =====================================================
 #
 # Run it in the Nano container.
 # If your container is on host networking, the RPi5/ROS2 can connect to the Nano IP on port 5001.
 # See https://chatgpt.com/s/t_69ab72e92950819191c249c64f5adc5b
 #
+"""
 python3 yolo_tcp_server.py \
   --model /code/src/dt-duckpack-yolo/packages/yolo_node/best.engine \
   --imgsz 480 \
@@ -15,6 +16,7 @@ python3 yolo_tcp_server.py \
   --request-timeout 30 \
   --quiet
 """
+# =====================================================
 
 import argparse
 import socket
@@ -95,18 +97,18 @@ class TCPInferenceServer:
                 pass
 
     def handle_client(self, sock: socket.socket, addr) -> None:
-        """
-        Handles a single client connection, processing incoming frames and sending back inference results.
-        This method runs in a separate thread for each client.
-        It reads frames either from the local camera (if grabber is set) or from the client socket,
-          submits them to the inference worker, and sends back the results.
-        It also handles timeouts and errors gracefully.
+        # =====================================================
+        # Handles a single client connection, processing incoming frames and sending back inference results.
+        # This method runs in a separate thread for each client.
+        # It reads frames either from the local camera (if grabber is set) or from the client socket,
+        #   submits them to the inference worker, and sends back the results.
+        # It also handles timeouts and errors gracefully.
 
-        Responses:
-         - ok=True,  has_jpeg=True  -> server-camera success, JSON followed by JPEG image for control and overlays
-         - ok=True,  has_jpeg=False -> client-image success, JSON only (client already has the image for overlays)
-         - ok=False, has_jpeg=False -> any error, JSON only
-        """
+        # Responses:
+        #  - ok=True,  has_jpeg=True  -> server-camera success, JSON followed by JPEG image for control and overlays
+        #  - ok=True,  has_jpeg=False -> client-image success, JSON only (client already has the image for overlays)
+        #  - ok=False, has_jpeg=False -> any error, JSON only
+        # =====================================================
         sock.settimeout(self.request_timeout_s)
         try:
             while not self.stop_evt.is_set():
@@ -173,14 +175,14 @@ class TCPInferenceServer:
 
                 response = dict(response)  # defensive copy to modify
 
-                """
-                if not self.quiet:
-                    print(
-                        f"frame_id={frame_id} request_jpeg={request_jpeg} "
-                        f"ok={response.get('ok', False)} use_server_cam={self.grabber is not None}",
-                        flush=True,
-                    )
-                """
+                # =====================================================
+                # if not self.quiet:
+                #     print(
+                #         f"frame_id={frame_id} request_jpeg={request_jpeg} "
+                #         f"ok={response.get('ok', False)} use_server_cam={self.grabber is not None}",
+                #         flush=True,
+                #     )
+                # =====================================================
 
                 if self.grabber is not None and response.get("ok", False) and request_jpeg:   # Return dict["ok"] if the "ok" key exists (hopefully True), otherwise return the default "False"
                     ok, encoded = cv2.imencode(

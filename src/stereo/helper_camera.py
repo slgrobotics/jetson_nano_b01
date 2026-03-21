@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 
-"""
-GStreamer-based camera driver for Jetson Nano CSI cameras.
-
-This module provides a lightweight wrapper around OpenCV VideoCapture using
-the nvargus GStreamer pipeline, enabling efficient access to CSI cameras.
-
-It supports opening individual cameras or synchronized stereo pairs with
-configurable resolution, frame rate, and flip settings.
-
-Key features:
-- Encapsulated GStreamer pipeline generation
-- Simple API for single or stereo camera initialization
-- Integration with shared configuration parameters
-- Error handling for camera availability
-
-Intended use:
-- Reusable camera interface across capture, calibration, and inference scripts
-- Consistent camera setup in stereo vision pipelines
-- Simplifying CSI camera access on embedded platforms
-"""
+# =====================================================
+# GStreamer-based camera driver for Jetson Nano CSI cameras.
+#
+# This module provides a lightweight wrapper around OpenCV VideoCapture using
+# the nvargus GStreamer pipeline, enabling efficient access to CSI cameras.
+#
+# It supports opening individual cameras or synchronized stereo pairs with
+# configurable resolution, frame rate, and flip settings.
+#
+# Key features:
+# - Encapsulated GStreamer pipeline generation
+# - Simple API for single or stereo camera initialization
+# - Integration with shared configuration parameters
+# - Error handling for camera availability
+#
+# Intended use:
+# - Reusable camera interface across capture, calibration, and inference scripts
+# - Consistent camera setup in stereo vision pipelines
+# - Simplifying CSI camera access on embedded platforms
+# =====================================================
 
 import cv2
 
