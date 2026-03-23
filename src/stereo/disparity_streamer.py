@@ -3,7 +3,7 @@
 # =====================================================
 # UDP-based stereo perception server for Jetson Nano.
 #
-# ./disparity_streamer.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10 --min-confidence 0.02]
+# python3 -m disparity_streamer.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10 --min-confidence 0.02]
 #
 # This script captures synchronized frames from two CSI cameras, applies stereo
 # rectification using precomputed calibration, computes a disparity map via
@@ -109,6 +109,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--close-cutout-factor",
+        type=float,
+        default=1.0,
+        help="Larger -> keep closer objects, larger disparity search range. Smaller -> near cutoff moves farther away.",
+    )
+
+    parser.add_argument(
+        "--far-smoothing-factor",
+        type=float,
+        default=1.0,
+        help="Larger -> smoother disparity, less far objects detail. Smaller -> sharper detail, more noise, more far detail.",
+    )
+
+    parser.add_argument(
         "--tcp-image-port",
         type=int,
         default=5006,
@@ -166,6 +180,51 @@ def make_valid_disparity_mask(disparity, min_valid_disp, invalid_left_cols, inva
         valid[:, -invalid_right_cols:] = False
 
     return valid
+
+def derive_sgbm_params(
+    close_cutout_factor: float = 1.0,
+    far_smoothing_factor: float = 1.0,
+):
+    # ==============================================
+    # Human-friendly mapping to StereoSGBM parameters.
+    #
+    # close_cutout_factor:
+    #     Larger -> keep closer objects, larger disparity search range.
+    #     Smaller -> near cutoff moves farther away.
+    #
+    # far_smoothing_factor:
+    #     Larger -> smoother disparity, less detail.
+    #     Smaller -> sharper detail, more noise.
+    # ==============================================
+
+    # Clamp to sane ranges
+    close_cutout_factor = max(0.5, min(2.0, close_cutout_factor))
+    far_smoothing_factor = max(0.5, min(2.0, far_smoothing_factor))
+
+    # Baseline working settings
+    base_min_disp = 1
+    base_num_disp = 16 * 8
+    base_block_size = 9
+
+    # Near-range preservation:
+    # Larger factor -> larger num_disp
+    num_disp_steps = round(8 * close_cutout_factor)   # around 4..16
+    num_disp_steps = max(4, min(16, num_disp_steps))
+    num_disp = 16 * num_disp_steps
+
+    # Slightly bias min_disp upward when focusing on near field
+    min_disp = max(0, int(round(base_min_disp * close_cutout_factor)))
+
+    # Smoothing/detail tradeoff:
+    # 0.5 -> block 5
+    # 1.0 -> block 9
+    # 2.0 -> block 15
+    block_size = int(round(9 * far_smoothing_factor))
+    if block_size % 2 == 0:
+        block_size += 1
+    block_size = max(5, min(15, block_size))
+
+    return min_disp, num_disp, block_size
 
 
 def make_raw_disparity_view(disparity, min_disp, num_disp, valid_mask=None):
@@ -454,6 +513,9 @@ def main():
     if args.grid_size <= 8:
         raise ValueError("--grid-size must be > 8")
 
+    close_cutout_factor = args.close_cutout_factor
+    far_smoothing_factor = args.far_smoothing_factor
+
     udp_ip = args.udp_ip
     udp_port = args.udp_port
     show_display = args.show_display
@@ -505,14 +567,23 @@ def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     # min_disp = minimum disparity the matcher will search
-    # the algorithm searches disparities in: [min_disp, min_disp + num_disp] range (pixels)
-    min_disp = 1    # min_disp = 0: full range, includes far; min_disp > 0: ignore far, focus near
-    block_size = 9  # matching window size (odd number); larger = smoother, less detail
+    # the algorithm searches disparities in: [min_disp, min_disp + num_disp]
+    #min_disp = 1    # min_disp = 0: full range, includes far; min_disp > 0: ignore far, focus near
+    #block_size = 9  # matching window size (odd number); larger = smoother, less detail
 
     # smaller num_disp means the nearest measurable depth moves farther away
     # larger num_disp means the matcher can represent closer objects
     #num_disp = 16 * 6  # closest objects cutoff at 0.9 meters
-    num_disp = 16 * 8  # closest objects cutoff at 0.5 meters
+    #num_disp = 16 * 8  # closest objects cutoff at 0.5 meters
+
+    min_disp, num_disp, block_size = derive_sgbm_params(
+        close_cutout_factor,
+        far_smoothing_factor
+    )
+
+    print(f"min_disp          : {min_disp}")
+    print(f"num_disp          : {num_disp}")
+    print(f"block_size        : {block_size}")
 
     stereo = cv2.StereoSGBM_create(
         minDisparity=min_disp,
