@@ -504,9 +504,15 @@ def main():
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    min_disp = 0
-    num_disp = 16 * 6
-    block_size = 7
+    # min_disp = minimum disparity the matcher will search
+    # the algorithm searches disparities in: [min_disp, min_disp + num_disp] range (pixels)
+    min_disp = 1    # min_disp = 0: full range, includes far; min_disp > 0: ignore far, focus near
+    block_size = 9  # matching window size (odd number); larger = smoother, less detail
+
+    # smaller num_disp means the nearest measurable depth moves farther away
+    # larger num_disp means the matcher can represent closer objects
+    #num_disp = 16 * 6  # closest objects cutoff at 0.9 meters
+    num_disp = 16 * 8  # closest objects cutoff at 0.5 meters
 
     stereo = cv2.StereoSGBM_create(
         minDisparity=min_disp,
