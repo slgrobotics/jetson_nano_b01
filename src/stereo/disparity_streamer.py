@@ -41,15 +41,19 @@ import argparse
 import socket
 import struct
 import time
+import os
+import sys
 import threading
 
 import cv2
 import numpy as np
 
+from helper_tcp_server import LatestFrameBuffer, resize_to_fit, encode_jpeg
+from config import Stereo, Streamer, Calib
+from helper_camera import CameraDriver
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tcp_helpers import recv_message, send_json, send_json_with_jpeg
-from stereo.helper_tcp_server import LatestFrameBuffer, resize_to_fit, encode_jpeg
-from stereo.config import Stereo, Streamer, Calib
-from stereo.helper_camera import CameraDriver
 
 # ==============================================
 # Protocol configuration - must match ROS2 node
