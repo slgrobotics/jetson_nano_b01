@@ -3,8 +3,8 @@
 # =====================================================
 # UDP-based stereo perception server for Jetson Nano.
 #
-#    cd ~/jetson_nano_b01/src
-#    python3 -m disparity_streamer.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10 --min-confidence 0.02]
+#    cd ~/jetson_nano_b01/src/stereo
+#    ./disparity_streamer.py --udp-ip 192.168.1.100 --udp-port 5005 [--no-display --show-preview --grid-size 10 --min-confidence 0.02]
 #
 # This script captures synchronized frames from two CSI cameras, applies stereo
 # rectification using precomputed calibration, computes a disparity map via
@@ -52,6 +52,8 @@ from helper_tcp_server import LatestFrameBuffer, resize_to_fit, encode_jpeg
 from config import Stereo, Streamer, Calib
 from helper_camera import CameraDriver
 
+# Add the parent directory of this file to Python’s import search path.
+# This is a bit hacky, but it's the simplest thing to do:
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tcp_helpers import recv_message, send_json, send_json_with_jpeg
 
