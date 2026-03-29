@@ -1,5 +1,7 @@
 Back to [Main Project Home](https://github.com/slgrobotics/articubot_one/wiki)
 
+If you are looking for similar functionality on Raspberry Pi 5 - see this [repo](https://github.com/slgrobotics/ros2_inference_stereo).
+
 If you are looking for **ROS 2 compatible Inference Server** - skip to [this section](https://github.com/slgrobotics/jetson_nano_b01/blob/main/README.md#inference-tcpip-server).
 
 ## Experiments with Jetson Nano B01
